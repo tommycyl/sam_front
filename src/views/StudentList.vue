@@ -78,32 +78,6 @@
       <span class="text-body-sm text-on-surface-variant">
         共找到 <strong class="text-primary">{{ filtered.length }}</strong> 位学生
       </span>
-      <div class="flex gap-2">
-        <button
-          type="button"
-          class="rounded p-1.5 transition-colors"
-          :class="
-            view === 'list'
-              ? 'text-primary bg-surface-variant'
-              : 'text-on-surface-variant hover:text-primary hover:bg-surface-variant'
-          "
-          @click="view = 'list'"
-        >
-          <span class="material-symbols-outlined text-[20px]">view_list</span>
-        </button>
-        <button
-          type="button"
-          class="rounded p-1.5 transition-colors"
-          :class="
-            view === 'grid'
-              ? 'text-primary bg-surface-variant'
-              : 'text-outline hover:text-primary hover:bg-surface-variant'
-          "
-          @click="view = 'grid'"
-        >
-          <span class="material-symbols-outlined text-[20px]">grid_view</span>
-        </button>
-      </div>
     </div>
 
     <!-- Data table -->
@@ -244,7 +218,6 @@ const selectArrow = {
 }
 
 const filters = ref({ keyword: '', owner: '', mentor: '', task: '', risk: '' })
-const view = ref('list')
 
 const rows = ref([
   {

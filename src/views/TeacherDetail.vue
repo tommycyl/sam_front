@@ -137,6 +137,104 @@
       </div>
     </section>
 
+    <!-- Gantt / Timeline -->
+    <section class="flex flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+      <div class="flex items-center gap-4 border-b border-surface-variant p-4">
+        <div class="flex overflow-hidden rounded bg-surface-container text-sm">
+          <button
+            type="button"
+            class="px-3 py-1 text-on-surface-variant transition-colors hover:bg-surface-variant"
+          >‹ 前</button>
+          <button
+            type="button"
+            class="bg-surface-container-highest px-3 py-1 font-medium"
+          >今天</button>
+          <button
+            type="button"
+            class="px-3 py-1 text-on-surface-variant transition-colors hover:bg-surface-variant"
+          >后 ›</button>
+        </div>
+        <span class="text-sm text-on-surface-variant">4/1 — 5/30</span>
+      </div>
+
+      <div class="flex">
+        <!-- Y-Axis -->
+        <div class="w-48 flex-shrink-0 border-r border-surface-variant bg-surface-container-low/50">
+          <div class="flex h-10 items-center border-b border-surface-variant px-4">
+            <span class="text-xs font-medium text-on-surface-variant">任务</span>
+          </div>
+          <div
+            v-for="t in tasks"
+            :key="t.title"
+            class="relative flex h-16 items-center border-b border-surface-variant px-4"
+            :class="{ 'bg-error-container/10': t.status === 'delayed' }"
+          >
+            <div class="absolute left-2 h-2 w-2 rounded-full" :class="t.dotColor"></div>
+            <div class="pl-3">
+              <div
+                class="text-sm font-bold"
+                :class="t.status === 'delayed' ? 'text-error' : ''"
+              >{{ t.title }}</div>
+              <div
+                class="mt-1 text-xs"
+                :class="t.status === 'delayed' ? 'text-error' : 'text-on-surface-variant'"
+              >
+                {{ t.tag }}
+                <span
+                  v-if="t.status === 'delayed'"
+                  class="ml-1 rounded bg-error px-1 text-[10px] text-white"
+                >延期</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="flex-1 overflow-x-auto">
+          <div class="relative min-w-[800px]">
+            <div
+              class="flex h-10 border-b border-surface-variant bg-surface-container-low/50 text-xs font-medium text-on-surface-variant"
+            >
+              <div class="flex flex-1 items-center justify-center border-r border-surface-variant">W1</div>
+              <div class="relative flex flex-1 items-center justify-center border-r border-surface-variant">
+                <div class="absolute bottom-0 left-0 top-0 z-10 w-[2px] bg-secondary">
+                  <div class="absolute -left-2 -top-1 rounded bg-secondary px-1 py-0.5 text-[10px] text-white">
+                    今
+                  </div>
+                </div>
+                W2
+              </div>
+              <div class="flex flex-1 items-center justify-center border-r border-surface-variant">W3</div>
+              <div class="flex flex-1 items-center justify-center border-r border-surface-variant">W4</div>
+            </div>
+
+            <div class="relative">
+              <div class="absolute bottom-0 left-[25%] top-0 z-0 w-[2px] bg-secondary/30"></div>
+
+              <div
+                v-for="t in tasks"
+                :key="t.title + 'bar'"
+                class="relative flex h-16 items-center border-b border-surface-variant"
+                :class="{ 'bg-error-container/10': t.status === 'delayed' }"
+              >
+                <div
+                  class="absolute flex h-8 items-center justify-between rounded border-2 px-2 text-xs"
+                  :class="t.barClass"
+                  :style="{ left: t.barLeft, width: t.barWidth }"
+                >
+                  <div class="flex items-center gap-1">
+                    <div class="h-2 w-2 rounded-full" :class="t.dotColor"></div>
+                    <span class="font-bold">{{ t.title }}</span>
+                  </div>
+                  <span class="hidden md:inline">{{ t.dateShort }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Tasks Overview -->
     <section class="rounded-lg border border-outline-variant bg-surface-container-lowest p-5">
       <div class="mb-6 flex items-center justify-between">
@@ -247,6 +345,12 @@ const tasks = [
     dotColor: 'bg-secondary',
     statusLabel: '进行中',
     statusClass: 'bg-surface-container-high text-on-surface border-outline-variant',
+    status: 'in_progress',
+    // timeline bars
+    barClass: 'border-secondary bg-secondary/10 text-secondary',
+    barLeft: '6%',
+    barWidth: '12%',
+    dateShort: '4/06~4/10',
   },
   {
     title: '推荐信',
@@ -256,6 +360,11 @@ const tasks = [
     dotColor: 'bg-primary',
     statusLabel: '已完成',
     statusClass: 'bg-surface-container-high text-on-surface border-outline-variant',
+    status: 'completed',
+    barClass: 'border-primary bg-primary/10 text-primary',
+    barLeft: '2%',
+    barWidth: '10%',
+    dateShort: '4/01~4/05',
   },
   {
     title: '文书初稿',
@@ -265,6 +374,11 @@ const tasks = [
     dotColor: 'bg-error',
     statusLabel: '延期',
     statusClass: 'bg-error-container text-on-error-container border-error-container',
+    status: 'delayed',
+    barClass: 'border-error bg-error/10 text-error',
+    barLeft: '20%',
+    barWidth: '16%',
+    dateShort: '3/25~3/30',
   },
 ]
 
