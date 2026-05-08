@@ -1,0 +1,93 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        // Indigo Admin Executive design tokens
+        primary: '#060435',
+        'primary-container': '#1d1d4b',
+        'on-primary': '#ffffff',
+        'on-primary-container': '#8585ba',
+        'on-primary-fixed': '#161544',
+        'on-primary-fixed-variant': '#424272',
+        'primary-fixed': '#e2dfff',
+        'primary-fixed-dim': '#c2c1fa',
+        'inverse-primary': '#c2c1fa',
+
+        secondary: '#4648d4',
+        'secondary-container': '#6063ee',
+        'on-secondary': '#ffffff',
+        'on-secondary-container': '#fffbff',
+        'on-secondary-fixed': '#07006c',
+        'on-secondary-fixed-variant': '#2f2ebe',
+        'secondary-fixed': '#e1e0ff',
+        'secondary-fixed-dim': '#c0c1ff',
+
+        tertiary: '#180800',
+        'tertiary-container': '#381b00',
+        'on-tertiary': '#ffffff',
+        'on-tertiary-container': '#ae8059',
+        'on-tertiary-fixed': '#2e1500',
+        'on-tertiary-fixed-variant': '#633e1d',
+        'tertiary-fixed': '#ffdcc2',
+        'tertiary-fixed-dim': '#f1bc90',
+
+        error: '#ba1a1a',
+        'on-error': '#ffffff',
+        'error-container': '#ffdad6',
+        'on-error-container': '#93000a',
+
+        background: '#f7f9fb',
+        'on-background': '#191c1e',
+        surface: '#f7f9fb',
+        'on-surface': '#191c1e',
+        'on-surface-variant': '#47464f',
+        'surface-bright': '#f7f9fb',
+        'surface-dim': '#d8dadc',
+        'surface-variant': '#e0e3e5',
+        'surface-tint': '#595a8b',
+        'surface-container-lowest': '#ffffff',
+        'surface-container-low': '#f2f4f6',
+        'surface-container': '#eceef0',
+        'surface-container-high': '#e6e8ea',
+        'surface-container-highest': '#e0e3e5',
+        'inverse-surface': '#2d3133',
+        'inverse-on-surface': '#eff1f3',
+
+        outline: '#777680',
+        'outline-variant': '#c8c5d0',
+      },
+      borderRadius: {
+        DEFAULT: '0.125rem',
+        lg: '0.25rem',
+        xl: '0.5rem',
+        full: '9999px',
+      },
+      spacing: {
+        unit: '4px',
+        'grid-gutter': '20px',
+        'container-padding': '24px',
+        'stack-gap': '16px',
+      },
+      fontFamily: {
+        'headline-md': ['IBM Plex Sans', 'PingFang SC', 'sans-serif'],
+        'display-lg': ['IBM Plex Sans', 'PingFang SC', 'sans-serif'],
+        'body-base': ['Inter', 'PingFang SC', 'sans-serif'],
+        'body-sm': ['Inter', 'PingFang SC', 'sans-serif'],
+        'label-caps': ['Inter', 'PingFang SC', 'sans-serif'],
+      },
+      fontSize: {
+        'display-lg': ['24px', { lineHeight: '32px', fontWeight: '600' }],
+        'headline-md': ['18px', { lineHeight: '24px', fontWeight: '600' }],
+        'body-base': ['14px', { lineHeight: '20px', fontWeight: '400' }],
+        'body-sm': ['12px', { lineHeight: '18px', fontWeight: '400' }],
+        'label-caps': ['11px', { lineHeight: '16px', fontWeight: '700', letterSpacing: '0.05em' }],
+      },
+      boxShadow: {
+        modal: '0 4px 20px rgba(29, 29, 75, 0.08)',
+      },
+    },
+  },
+  plugins: [],
+}
