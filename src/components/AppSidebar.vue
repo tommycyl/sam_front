@@ -67,6 +67,7 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
+import { clearAuth } from '@/utils/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -82,7 +83,7 @@ function isActive(item) {
 }
 
 function onLogout() {
-  localStorage.removeItem('token')
-  router.replace('/students')
+  clearAuth()
+  router.replace('/login')
 }
 </script>

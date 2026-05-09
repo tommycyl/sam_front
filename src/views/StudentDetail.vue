@@ -24,34 +24,6 @@
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <div class="flex overflow-hidden rounded border border-outline-variant bg-surface-container-lowest">
-          <button
-            v-for="r in ['周', '月']"
-            :key="r"
-            type="button"
-            class="px-3 py-1.5 text-sm font-medium transition-colors"
-            :class="
-              range === r
-                ? 'bg-surface-container-high text-on-surface'
-                : 'text-on-surface-variant hover:bg-surface-container-low'
-            "
-            @click="range = r"
-          >
-            {{ r }}
-          </button>
-        </div>
-        <button
-          type="button"
-          class="rounded border border-outline-variant bg-surface-container-lowest px-4 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-surface-container-low"
-        >
-          编辑信息
-        </button>
-        <button
-          type="button"
-          class="rounded border border-outline-variant bg-surface-container-lowest px-4 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-surface-container-low"
-        >
-          套模板
-        </button>
         <button
           type="button"
           class="flex items-center gap-1 rounded bg-primary px-4 py-1.5 text-sm font-medium text-on-primary transition-opacity hover:opacity-90"
@@ -105,7 +77,7 @@
               class="flex items-center gap-2 rounded border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm"
             >
               <div class="h-2 w-2 rounded-full" :class="t.dotColor"></div>
-              {{ t.title }} → {{ t.endDate }}
+              {{ t.title }} → {{ formatMdSlashFromYmd(t.endDate) }}
             </div>
           </div>
         </div>
@@ -124,108 +96,13 @@
               class="flex items-center gap-2 rounded border border-error-container bg-surface-container-lowest px-3 py-1.5 text-sm text-error"
             >
               <div class="h-2 w-2 rounded-full bg-error"></div>
-              {{ t.title }} 截止 {{ t.endDate }}
+              {{ t.title }} 截止 {{ formatMdSlashFromYmd(t.endDate) }}
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Gantt -->
-      <section class="flex flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
-        <div class="flex items-center gap-4 border-b border-surface-variant p-4">
-          <div class="flex overflow-hidden rounded bg-surface-container text-sm">
-            <button
-              type="button"
-              class="px-3 py-1 text-on-surface-variant transition-colors hover:bg-surface-variant"
-            >‹ 前</button>
-            <button type="button" class="bg-surface-container-highest px-3 py-1 font-medium">
-              今天
-            </button>
-            <button
-              type="button"
-              class="px-3 py-1 text-on-surface-variant transition-colors hover:bg-surface-variant"
-            >后 ›</button>
-          </div>
-          <span class="text-sm text-on-surface-variant">5/2 — 6/25</span>
-        </div>
-
-        <div class="flex">
-          <!-- Y-Axis -->
-          <div class="w-48 flex-shrink-0 border-r border-surface-variant bg-surface-container-low/50">
-            <div class="flex h-10 items-center border-b border-surface-variant px-4">
-              <span class="text-xs font-medium text-on-surface-variant">任务</span>
-            </div>
-            <div
-              v-for="t in tasks"
-              :key="t.title"
-              class="relative flex h-16 items-center border-b border-surface-variant px-4"
-              :class="{ 'bg-error-container/10': t.status === 'delayed' }"
-            >
-              <div class="absolute left-2 h-2 w-2 rounded-full" :class="t.dotColor"></div>
-              <div class="pl-3">
-                <div
-                  class="text-sm font-bold"
-                  :class="t.status === 'delayed' ? 'text-error' : ''"
-                >{{ t.title }}</div>
-                <div
-                  class="mt-1 text-xs"
-                  :class="t.status === 'delayed' ? 'text-error' : 'text-on-surface-variant'"
-                >
-                  {{ t.tag }}
-                  <span
-                    v-if="t.status === 'delayed'"
-                    class="ml-1 rounded bg-error px-1 text-[10px] text-white"
-                  >延期</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Chart -->
-          <div class="flex-1 overflow-x-auto">
-            <div class="relative min-w-[800px]">
-              <div
-                class="flex h-10 border-b border-surface-variant bg-surface-container-low/50 text-xs font-medium text-on-surface-variant"
-              >
-                <div class="flex flex-1 items-center justify-center border-r border-surface-variant">W1</div>
-                <div class="relative flex flex-1 items-center justify-center border-r border-surface-variant">
-                  <div class="absolute bottom-0 left-0 top-0 z-10 w-[2px] bg-secondary">
-                    <div class="absolute -left-2 -top-1 rounded bg-secondary px-1 py-0.5 text-[10px] text-white">
-                      今
-                    </div>
-                  </div>
-                  W2
-                </div>
-                <div class="flex flex-1 items-center justify-center border-r border-surface-variant">W3</div>
-                <div class="flex flex-1 items-center justify-center border-r border-surface-variant">W4</div>
-              </div>
-
-              <div class="relative">
-                <div class="absolute bottom-0 left-[25%] top-0 z-0 w-[2px] bg-secondary/30"></div>
-
-                <div
-                  v-for="t in tasks"
-                  :key="t.title + 'bar'"
-                  class="relative flex h-16 items-center border-b border-surface-variant"
-                  :class="{ 'bg-error-container/10': t.status === 'delayed' }"
-                >
-                  <div
-                    class="absolute flex h-8 items-center justify-between rounded border-2 px-2 text-xs"
-                    :class="t.barClass"
-                    :style="{ left: t.barLeft, width: t.barWidth }"
-                  >
-                    <div class="flex items-center gap-1">
-                      <div class="h-2 w-2 rounded-full" :class="t.dotColor"></div>
-                      <span class="font-bold">{{ t.title }}</span>
-                    </div>
-                    <span class="hidden md:inline">{{ t.dateShort }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <TaskTimelinePanel v-model:range="range" :tasks="tasks" subtitle-kind="teacher" />
 
       <!-- Task list -->
       <section class="space-y-4">
@@ -237,47 +114,145 @@
           <div
             v-for="t in tasks"
             :key="t.title + 'row'"
-            class="flex items-center gap-4 p-4"
+            class="flex flex-wrap items-start gap-x-4 gap-y-2 p-4 md:grid md:grid-cols-[2rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center md:gap-x-4 md:gap-y-0"
           >
-            <div class="flex w-8 justify-center">
+            <div class="flex w-8 shrink-0 justify-center pt-0.5 md:pt-0">
               <div class="h-2 w-2 rounded-full" :class="t.dotColor"></div>
             </div>
-            <div class="flex-1">
-              <div class="text-sm font-bold" :class="t.status === 'delayed' ? 'text-error' : ''">
+            <div class="min-w-0 flex-1 basis-[140px] md:min-w-0 md:flex-none">
+              <div class="text-sm font-bold leading-snug break-words" :class="t.status === 'delayed' ? 'text-error' : ''">
                 {{ t.title }}
               </div>
             </div>
-            <div class="w-24">
-              <span class="rounded px-2 py-0.5 text-xs" :class="t.tagClass">{{ t.tag }}</span>
+            <div class="min-w-0 w-full text-sm leading-snug text-on-surface-variant break-words sm:w-auto md:min-w-0 md:text-center">
+              {{ t.startDate }} ~ {{ t.endDate }}
             </div>
-            <div class="flex-1 text-center text-sm text-on-surface-variant">
-              {{ t.startDate }} → {{ t.endDate }}
+            <div class="min-w-0 w-full text-sm leading-snug text-on-surface-variant break-words sm:w-auto md:min-w-0 md:text-center">
+              老师：{{ t.teacher || '—' }}
             </div>
-            <div class="w-24 text-right">
+            <div class="flex min-w-0 w-full justify-start sm:w-auto md:min-w-0 md:justify-center">
               <span
-                class="rounded px-2 py-0.5 text-xs"
-                :class="taskStatusClass(t.status)"
+                class="rounded px-2 py-0.5 text-xs font-medium"
+                :class="taskStatusBadgeClass(t)"
+                :style="taskStatusBadgeStyle(t)"
               >{{ taskStatusLabel(t.status) }}</span>
             </div>
-            <div class="w-24 text-right">
+            <div class="shrink-0 md:justify-self-end">
               <button
                 type="button"
                 class="rounded bg-primary px-3 py-1 text-xs font-medium text-on-primary transition-opacity hover:opacity-90"
-                @click="cycleStatus(t)"
+                @click="openEditTask(t)"
               >
-                修改状态
+                修改
               </button>
             </div>
           </div>
         </div>
       </section>
     </div>
+
+    <!-- 修改任务 -->
+    <Teleport to="body">
+      <Transition name="fade-task-edit">
+        <div
+          v-if="editModalOpen"
+          class="fixed inset-0 z-[90] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="task-edit-title"
+        >
+          <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-[2px]" @click="closeEditModal"></div>
+          <div
+            class="relative w-full max-w-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-modal"
+            @click.stop
+          >
+            <div class="border-b border-outline-variant px-6 py-4">
+              <h3 id="task-edit-title" class="text-headline-md font-headline-md text-primary">修改任务</h3>
+              <p v-if="editingTask" class="mt-1 text-body-sm text-on-surface-variant">
+                任务：<span class="font-semibold text-on-surface">{{ editingTask.title }}</span>
+              </p>
+            </div>
+            <div class="space-y-4 px-6 py-5">
+              <div>
+                <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-edit-status">
+                  状态
+                </label>
+                <select
+                  id="task-edit-status"
+                  v-model="draftStatus"
+                  class="h-11 w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  :style="selectArrowStyle"
+                >
+                  <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-edit-start">
+                    开始时间
+                  </label>
+                  <input
+                    id="task-edit-start"
+                    v-model="draftStartDate"
+                    type="date"
+                    class="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-edit-end">
+                    结束时间
+                  </label>
+                  <input
+                    id="task-edit-end"
+                    v-model="draftEndDate"
+                    type="date"
+                    class="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-edit-teacher">
+                  任务老师
+                </label>
+                <input
+                  id="task-edit-teacher"
+                  v-model="draftTeacher"
+                  type="text"
+                  placeholder="负责老师姓名"
+                  class="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-base text-on-surface placeholder:text-outline focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                />
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 border-t border-outline-variant bg-surface-container-low px-6 py-4">
+              <button
+                type="button"
+                class="rounded-lg px-4 py-2 text-body-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+                @click="closeEditModal"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-primary px-5 py-2 text-body-sm font-semibold text-on-primary transition-colors hover:bg-primary-container"
+                @click="confirmEditTask"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { showMessage } from '@/utils/request'
+import TaskTimelinePanel from '@/components/TaskTimelinePanel.vue'
 
 const router = useRouter()
 const props = defineProps({ id: { type: String, required: true } })
@@ -296,83 +271,98 @@ const student = ref({
 const tasks = ref([
   {
     title: '初始评估',
-    tag: '申请',
-    tagClass: 'bg-blue-100 text-[#2196F3]',
     dotColor: 'bg-[#2196F3]',
     startDate: '2026-04-06',
     endDate: '2026-04-10',
     status: 'completed',
+    teacher: 'Dr. Smith',
     barClass: 'border-[#2196F3] bg-[#2196F3]/10 text-[#2196F3]',
-    barLeft: '0.5rem',
-    barWidth: '5%',
-    dateShort: '4/06~4/10',
+    dateShort: '4/6~4/10',
   },
   {
     title: '推荐信',
-    tag: '材料',
-    tagClass: 'bg-purple-100 text-[#9C27B0]',
     dotColor: 'bg-[#9C27B0]',
     startDate: '2026-04-13',
     endDate: '2026-05-04',
     status: 'delayed',
+    teacher: 'Prof. Davis',
     barClass: 'border-error bg-error/10 text-error',
-    barLeft: '8%',
-    barWidth: '4%',
-    dateShort: '4/13~5/04',
+    dateShort: '4/13~5/4',
   },
   {
     title: '文书初稿',
-    tag: '材料',
-    tagClass: 'bg-purple-100 text-[#9C27B0]',
     dotColor: 'bg-[#9C27B0]',
     startDate: '2026-04-20',
     endDate: '2026-05-18',
     status: 'in_progress',
+    teacher: '王老师',
     barClass: 'border-[#9C27B0] bg-[#9C27B0]/10 text-[#9C27B0]',
-    barLeft: '26%',
-    barWidth: '40%',
     dateShort: '4/20~5/18',
+  },
+  /** 与「文书初稿」时段重叠，用于演示同一时间段多条任务堆叠 */
+  {
+    title: '材料补充说明',
+    dotColor: 'bg-[#7e57c2]',
+    startDate: '2026-04-25',
+    endDate: '2026-05-10',
+    status: 'in_progress',
+    teacher: '李老师',
+    barClass: 'border-[#7e57c2] bg-[#7e57c2]/15 text-[#5e35b1]',
+    dateShort: '4/25~5/10',
   },
   {
     title: '网申提交',
-    tag: '申请',
-    tagClass: 'bg-blue-100 text-[#2196F3]',
     dotColor: 'bg-[#2196F3]',
     startDate: '2026-05-26',
     endDate: '2026-06-05',
     status: 'pending',
+    teacher: '陈PM',
     barClass: 'border-[#2196F3] bg-[#2196F3]/10 text-[#2196F3]',
-    barLeft: '60%',
-    barWidth: '15%',
-    dateShort: '5/26~6/05',
+    dateShort: '5/26~6/5',
   },
   {
     title: '面试准备',
-    tag: '面试',
-    tagClass: 'bg-orange-100 text-[#FF9800]',
     dotColor: 'bg-[#FF9800]',
     startDate: '2026-05-31',
     endDate: '2026-06-15',
     status: 'pending',
+    teacher: '赵老师',
     barClass: 'border-[#FF9800] bg-[#FF9800]/10 text-[#FF9800]',
-    barLeft: '70%',
-    barWidth: '20%',
     dateShort: '5/31~6/15',
   },
   {
     title: '结果跟进',
-    tag: '跟进',
-    tagClass: 'bg-green-100 text-[#4CAF50]',
     dotColor: 'bg-[#4CAF50]',
     startDate: '2026-06-20',
     endDate: '2026-07-05',
     status: 'pending',
+    teacher: '王老师',
     barClass: 'border-[#4CAF50] bg-[#4CAF50]/10 text-[#4CAF50]',
-    barLeft: '85%',
-    barWidth: '15%',
-    dateShort: '6/20~7/05',
+    dateShort: '6/20~7/5',
   },
 ])
+
+/** 任务时间表展示：YYYY-MM-DD → MM/dd（无年份） */
+function formatMdSlashFromYmd(ymd) {
+  const p = String(ymd).split('-')
+  if (p.length !== 3) return ymd
+  return `${p[1].padStart(2, '0')}/${p[2].padStart(2, '0')}`
+}
+
+function startOfDay(d) {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+function parseYmdLocal(ymd) {
+  const [y, m, d] = String(ymd).split('-').map(Number)
+  return startOfDay(new Date(y, m - 1, d))
+}
+
+function dayOffsetFrom(a, b) {
+  return Math.round((startOfDay(b) - startOfDay(a)) / 86400000)
+}
 
 const overdueTasks = computed(() => tasks.value.filter((t) => t.status === 'delayed'))
 const overdueCount = computed(() => overdueTasks.value.length)
@@ -403,19 +393,109 @@ function taskStatusLabel(s) {
     pending: '未开始',
   }[s] || s
 }
-function taskStatusClass(s) {
-  return {
-    completed: 'bg-green-100 text-green-700',
-    delayed: 'bg-error-container text-error',
-    in_progress: 'bg-surface-container-high text-on-surface-variant',
-    pending: 'bg-transparent text-on-surface-variant',
-  }[s] || 'bg-surface-container-high text-on-surface-variant'
+
+/** 仅「未开始」：距开始日越近越大（0~1），用于渐变深浅 */
+function incompleteStartCloseness(task) {
+  if (task?.status !== 'pending' || !task?.startDate) return 0
+  const today = startOfDay(new Date())
+  const start = parseYmdLocal(task.startDate)
+  const daysUntil = dayOffsetFrom(today, start)
+  if (daysUntil > 21) return 0
+  if (daysUntil <= 0) return 1
+  return 1 - daysUntil / 21
 }
 
-const order = ['pending', 'in_progress', 'completed', 'delayed']
-function cycleStatus(t) {
-  const i = order.indexOf(t.status)
-  t.status = order[(i + 1) % order.length]
+function lerp(a, b, t) {
+  return a + (b - a) * t
+}
+
+/** 「未开始」徽标：越接近开始日背景与字色越深 */
+function incompleteBadgeStyleFromCloseness(c) {
+  const t = Math.min(1, Math.max(0, c))
+  const bg = `hsl(${lerp(214, 220, t)}, ${lerp(32, 86, t)}%, ${lerp(94, 40, t)}%)`
+  const fg = `hsl(218, ${lerp(16, 92, t)}%, ${lerp(38, 99, t)}%)`
+  const br = `hsl(217, ${lerp(28, 72, t)}%, ${lerp(86, 30, t)}%)`
+  return {
+    backgroundColor: bg,
+    color: fg,
+    borderColor: br,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+  }
+}
+
+function taskStatusBadgeClass(task) {
+  const s = task.status
+  if (s === 'completed') return 'bg-green-100 text-green-700'
+  if (s === 'delayed') return 'border border-[#fde047] bg-[#fef9c3] text-[#854d0e]'
+  if (s === 'in_progress') return 'border border-[#2563eb] bg-[#bfdbfe] text-[#1d4ed8]'
+  if (s === 'pending') return ''
+  return 'border border-outline-variant bg-surface-container-high text-on-surface-variant'
+}
+
+function taskStatusBadgeStyle(task) {
+  if (task.status !== 'pending') return {}
+  return incompleteBadgeStyleFromCloseness(incompleteStartCloseness(task))
+}
+
+const statusOptions = [
+  { value: 'pending', label: '未开始' },
+  { value: 'in_progress', label: '进行中' },
+  { value: 'completed', label: '已完成' },
+  { value: 'delayed', label: '延期' },
+]
+
+const selectArrowStyle = {
+  backgroundImage:
+    "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23777680' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+  backgroundPosition: 'right 0.75rem center',
+  backgroundRepeat: 'no-repeat',
+  backgroundSize: '1.25em 1.25em',
+}
+
+const editModalOpen = ref(false)
+const editingTask = ref(null)
+const draftStatus = ref('pending')
+const draftStartDate = ref('')
+const draftEndDate = ref('')
+const draftTeacher = ref('')
+
+/** 甘特条右侧短日期，MM/dd~MM/dd */
+function formatTaskDateShort(startYmd, endYmd) {
+  return `${formatMdSlashFromYmd(startYmd)}~${formatMdSlashFromYmd(endYmd)}`
+}
+
+function openEditTask(t) {
+  editingTask.value = t
+  draftStatus.value = t.status
+  draftStartDate.value = t.startDate
+  draftEndDate.value = t.endDate
+  draftTeacher.value = t.teacher || ''
+  editModalOpen.value = true
+}
+
+function closeEditModal() {
+  editModalOpen.value = false
+  editingTask.value = null
+}
+
+function confirmEditTask() {
+  if (!editingTask.value) return
+  if (!draftStartDate.value || !draftEndDate.value) {
+    showMessage('请填写开始与结束时间', 'warning')
+    return
+  }
+  if (draftStartDate.value > draftEndDate.value) {
+    showMessage('结束时间不能早于开始时间', 'error')
+    return
+  }
+  editingTask.value.status = draftStatus.value
+  editingTask.value.startDate = draftStartDate.value
+  editingTask.value.endDate = draftEndDate.value
+  editingTask.value.teacher = draftTeacher.value.trim() || '—'
+  editingTask.value.dateShort = formatTaskDateShort(draftStartDate.value, draftEndDate.value)
+  showMessage('任务已更新', 'success')
+  closeEditModal()
 }
 
 function goBack() {
@@ -423,3 +503,14 @@ function goBack() {
   else router.push('/students')
 }
 </script>
+
+<style scoped>
+.fade-task-edit-enter-active,
+.fade-task-edit-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-task-edit-enter-from,
+.fade-task-edit-leave-to {
+  opacity: 0;
+}
+</style>

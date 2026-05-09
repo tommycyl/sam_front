@@ -9,12 +9,28 @@
   color: #191c1e;
 }
 
+/* 整站视觉缩小 20%（显示为 80%），含 Teleport 到 body 的弹窗 */
+html {
+  zoom: 0.85;
+}
+
 html,
 body,
 #app {
   height: 100%;
   margin: 0;
   background: #f7f9fb;
+}
+
+/**
+ * 登录页全屏铺满：整站 html 有 zoom:0.85 时，普通 100% 高度易露出 body 浅色底。
+ * 与 Login.vue 根节点 `fixed inset-0` 配合，缝隙处也为海军蓝。
+ */
+html:has(.login-root),
+html:has(.login-root) body,
+html:has(.login-root) #app {
+  background-color: #002060;
+  min-height: 100dvh;
 }
 
 .material-symbols-outlined {

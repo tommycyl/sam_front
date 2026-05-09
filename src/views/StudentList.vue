@@ -1,77 +1,171 @@
 <template>
   <div class="bg-background p-container-padding">
     <!-- Page header -->
-    <div class="mb-6 flex items-end justify-between">
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <h2 class="text-display-lg font-display-lg text-on-background mb-1">学生管理</h2>
         <p class="text-body-sm text-on-surface-variant">
           统一管理学生档案、负责人、Mentor 与任务进度。
         </p>
       </div>
-      <button
-        type="button"
-        class="flex items-center gap-2 whitespace-nowrap rounded-lg bg-primary px-5 py-2.5 text-body-sm font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary-container"
-        @click="openAdd"
-      >
-        <span class="material-symbols-outlined text-[18px]">add</span>
-        新增记录
-      </button>
+      <div class="flex shrink-0 flex-wrap items-center justify-end gap-3">
+        <button
+          type="button"
+          class="flex items-center gap-2 whitespace-nowrap rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-2.5 text-body-sm font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container-low"
+          @click="onOpenTemplateSettings"
+        >
+          <span class="material-symbols-outlined text-[18px]">article</span>
+          设置模板
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-2 whitespace-nowrap rounded-lg bg-primary px-5 py-2.5 text-body-sm font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary-container"
+          @click="openAdd"
+        >
+          <span class="material-symbols-outlined text-[18px]">add</span>
+          新增记录
+        </button>
+      </div>
     </div>
 
     <!-- Filters -->
     <div class="mb-stack-gap rounded-xl border border-surface-variant bg-surface-container-lowest p-6 shadow-sm">
-      <div class="grid grid-cols-1 gap-grid-gutter md:grid-cols-2 lg:grid-cols-5">
-        <div class="relative">
-          <span
-            class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant"
-          >search</span>
-          <input
-            v-model="filters.keyword"
-            type="text"
-            placeholder="搜索学生姓名/ID..."
-            class="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-10 pr-4 text-body-base text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+      <div class="flex flex-col gap-grid-gutter lg:flex-row lg:items-end lg:gap-grid-gutter">
+        <div class="grid min-w-0 flex-1 grid-cols-1 gap-grid-gutter md:grid-cols-2 lg:grid-cols-4">
+          <div class="relative">
+            <span
+              class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant"
+            >search</span>
+            <input
+              v-model="filters.keyword"
+              type="text"
+              placeholder="搜索学生姓名"
+              class="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-10 pr-4 text-body-base text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <select
+            v-model="filters.owner"
+            class="w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 py-2 text-body-base text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            :style="selectArrow"
+          >
+            <option value="">全部负责人</option>
+            <option v-for="o in ownerOptions" :key="o" :value="o">{{ o }}</option>
+          </select>
+          <select
+            v-model="filters.mentor"
+            class="w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 py-2 text-body-base text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            :style="selectArrow"
+          >
+            <option value="">全部 Mentor</option>
+            <option v-for="m in mentorOptions" :key="m" :value="m">{{ m }}</option>
+          </select>
+          <select
+            v-model="filters.risk"
+            class="w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 py-2 text-body-base text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            :style="selectArrow"
+          >
+            <option value="">全部风险级别</option>
+            <option value="low">低风险</option>
+            <option value="medium">中风险</option>
+            <option value="high">高风险</option>
+          </select>
         </div>
-        <select
-          v-model="filters.owner"
-          class="w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 py-2 text-body-base text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          :style="selectArrow"
-        >
-          <option value="">全部负责人</option>
-          <option v-for="o in ownerOptions" :key="o" :value="o">{{ o }}</option>
-        </select>
-        <select
-          v-model="filters.mentor"
-          class="w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 py-2 text-body-base text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          :style="selectArrow"
-        >
-          <option value="">全部 Mentor</option>
-          <option v-for="m in mentorOptions" :key="m" :value="m">{{ m }}</option>
-        </select>
-        <select
-          v-model="filters.task"
-          class="w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 py-2 text-body-base text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          :style="selectArrow"
-        >
-          <option value="">全部任务</option>
-          <option value="brainstorming">Brainstorming完成</option>
-          <option value="ip">IP完成</option>
-          <option value="bs">BS会议</option>
-          <option value="course_plan">选课方案</option>
-          <option value="course_search">选课搜索</option>
-        </select>
-        <select
-          v-model="filters.risk"
-          class="w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 py-2 text-body-base text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          :style="selectArrow"
-        >
-          <option value="">全部风险级别</option>
-          <option value="low">低风险</option>
-          <option value="medium">中风险</option>
-          <option value="high">高风险</option>
-        </select>
+        <div class="flex shrink-0 justify-end lg:justify-start">
+          <button
+            type="button"
+            class="relative inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-body-sm font-semibold text-primary transition-colors hover:bg-surface-container-low"
+            @click="openTaskFilterPanel"
+          >
+            <span class="material-symbols-outlined text-[20px]">tune</span>
+            筛选
+            <span
+              v-if="appliedTaskIds.length"
+              class="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-bold text-on-secondary"
+            >{{ appliedTaskIds.length }}</span>
+          </button>
+        </div>
       </div>
     </div>
+
+    <!-- 任务多选筛选卡片 -->
+    <Teleport to="body">
+      <Transition name="fade-task-filter">
+        <div
+          v-if="taskFilterOpen"
+          class="fixed inset-0 z-[90] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="task-filter-title"
+        >
+          <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-[2px]" @click="closeTaskFilterPanel"></div>
+          <div
+            class="relative w-full max-w-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-modal"
+            @click.stop
+          >
+            <div class="border-b border-outline-variant px-6 py-4">
+              <h3 id="task-filter-title" class="text-headline-md font-headline-md text-primary">按任务筛选</h3>
+              <p class="mt-1 text-body-sm text-on-surface-variant">
+                多选任务后点击确认，列表将只显示关联了所选任务的学生。
+              </p>
+            </div>
+
+            <div class="max-h-[min(360px,50vh)] overflow-y-auto px-6 py-4">
+              <div v-if="taskOptionsLoading" class="flex flex-col items-center justify-center gap-3 py-10 text-body-sm text-on-surface-variant">
+                <div class="h-8 w-8 animate-spin rounded-full border-2 border-secondary border-t-transparent"></div>
+                正在加载任务列表…
+              </div>
+              <div v-else-if="!taskOptions.length" class="py-8 text-center text-body-sm text-on-surface-variant">
+                暂无任务数据
+              </div>
+              <ul v-else class="space-y-1">
+                <li
+                  v-for="opt in taskOptions"
+                  :key="opt.id"
+                  class="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-surface-container-low"
+                >
+                  <input
+                    :id="'task-opt-' + opt.id"
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-outline-variant text-secondary focus:ring-secondary"
+                    :checked="tempSelectedTaskIds.has(opt.id)"
+                    @change="toggleTempTask(opt.id, $event.target.checked)"
+                  />
+                  <label
+                    :for="'task-opt-' + opt.id"
+                    class="flex-1 cursor-pointer text-body-base text-on-surface"
+                  >{{ opt.name }}</label>
+                </li>
+              </ul>
+              <p v-if="taskOptionsHint" class="mt-3 text-body-sm text-on-surface-variant">{{ taskOptionsHint }}</p>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-end gap-2 border-t border-outline-variant bg-surface-container-low px-6 py-4">
+              <button
+                type="button"
+                class="rounded-lg px-4 py-2 text-body-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+                @click="resetTempTaskSelection"
+              >
+                清空选择
+              </button>
+              <button
+                type="button"
+                class="rounded-lg px-4 py-2 text-body-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+                @click="closeTaskFilterPanel"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-primary px-5 py-2 text-body-sm font-semibold text-on-primary transition-colors hover:bg-primary-container"
+                @click="confirmTaskFilter"
+              >
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Table meta -->
     <div class="mb-4 flex items-center justify-between px-1">
@@ -120,7 +214,6 @@
                   </div>
                   <div>
                     <div class="font-semibold text-on-surface">{{ row.name }}</div>
-                    <div class="text-body-sm text-outline">ID: {{ row.id }}</div>
                   </div>
                 </div>
               </td>
@@ -199,6 +292,7 @@
     </div>
 
     <AddStudentModal v-model:visible="addVisible" @submit="onCreate" />
+    <TemplateSettingsModal v-model:visible="templateSettingsVisible" />
   </div>
 </template>
 
@@ -206,6 +300,8 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AddStudentModal from '@/components/AddStudentModal.vue'
+import TemplateSettingsModal from '@/components/TemplateSettingsModal.vue'
+import { fetchStudentTaskFilterOptions } from '@/api/student'
 import { showMessage } from '@/utils/request'
 
 const router = useRouter()
@@ -217,7 +313,17 @@ const selectArrow = {
   backgroundSize: '1.5em 1.5em',
 }
 
-const filters = ref({ keyword: '', owner: '', mentor: '', task: '', risk: '' })
+const filters = ref({ keyword: '', owner: '', mentor: '', risk: '' })
+
+/** 后端未就绪时的示例任务，需与下方 rows[].taskKeys 的 id 对齐 */
+const FALLBACK_TASK_OPTIONS = [
+  { id: 'initial_eval', name: '初始评估' },
+  { id: 'recommendation', name: '推荐信' },
+  { id: 'essay_draft', name: '文书初稿' },
+  { id: 'online_apply', name: '网申提交' },
+  { id: 'interview_prep', name: '面试准备' },
+  { id: 'result_followup', name: '结果跟进' },
+]
 
 const rows = ref([
   {
@@ -228,6 +334,7 @@ const rows = ref([
     progress: 75,
     status: 'normal',
     risk: 'low',
+    taskKeys: ['initial_eval', 'essay_draft', 'online_apply'],
   },
   {
     id: 'STU-9032',
@@ -237,6 +344,7 @@ const rows = ref([
     progress: 30,
     status: 'delayed',
     risk: 'high',
+    taskKeys: ['recommendation', 'essay_draft'],
   },
   {
     id: 'STU-7745',
@@ -246,6 +354,7 @@ const rows = ref([
     progress: 100,
     status: 'completed',
     risk: 'low',
+    taskKeys: ['initial_eval', 'recommendation', 'essay_draft', 'online_apply', 'interview_prep', 'result_followup'],
   },
   {
     id: 'STU-8199',
@@ -255,11 +364,19 @@ const rows = ref([
     progress: 50,
     status: 'in_progress',
     risk: 'medium',
+    taskKeys: ['essay_draft', 'interview_prep'],
   },
 ])
 
 const ownerOptions = computed(() => [...new Set(rows.value.map((r) => r.owner))])
 const mentorOptions = computed(() => [...new Set(rows.value.map((r) => r.mentor))])
+
+const appliedTaskIds = ref([])
+const taskFilterOpen = ref(false)
+const taskOptionsLoading = ref(false)
+const taskOptions = ref([])
+const taskOptionsHint = ref('')
+const tempSelectedTaskIds = ref([])
 
 const filtered = computed(() =>
   rows.value.filter((r) => {
@@ -269,9 +386,74 @@ const filtered = computed(() =>
     if (filters.value.owner && r.owner !== filters.value.owner) return false
     if (filters.value.mentor && r.mentor !== filters.value.mentor) return false
     if (filters.value.risk && r.risk !== filters.value.risk) return false
+    if (appliedTaskIds.value.length) {
+      const keys = r.taskKeys || []
+      const hit = appliedTaskIds.value.some((id) => keys.includes(id))
+      if (!hit) return false
+    }
     return true
   }),
 )
+
+function normalizeTaskOptions(data) {
+  if (!data) return []
+  if (Array.isArray(data)) {
+    return data.map((x) =>
+      typeof x === 'string' ? { id: x, name: x } : { id: String(x.id), name: String(x.name ?? x.id) },
+    )
+  }
+  if (Array.isArray(data.list)) {
+    return data.list.map((x) => ({ id: String(x.id), name: String(x.name ?? x.id) }))
+  }
+  return []
+}
+
+async function openTaskFilterPanel() {
+  taskFilterOpen.value = true
+  tempSelectedTaskIds.value = [...appliedTaskIds.value]
+  taskOptionsHint.value = ''
+  taskOptionsLoading.value = true
+  taskOptions.value = []
+  try {
+    const data = await fetchStudentTaskFilterOptions({ silent: true, loading: false })
+    const list = normalizeTaskOptions(data)
+    taskOptions.value = list
+    if (!list.length) {
+      taskOptionsHint.value = '当前没有可选任务，请确认后端已返回任务名称列表。'
+    }
+  } catch {
+    taskOptions.value = [...FALLBACK_TASK_OPTIONS]
+    taskOptionsHint.value = '接口未就绪，已使用本地示例任务列表。对接后请实现 GET /students/meta/task-names。'
+  } finally {
+    taskOptionsLoading.value = false
+  }
+}
+
+function closeTaskFilterPanel() {
+  taskFilterOpen.value = false
+}
+
+function toggleTempTask(id, checked) {
+  const set = new Set(tempSelectedTaskIds.value)
+  if (checked) set.add(id)
+  else set.delete(id)
+  tempSelectedTaskIds.value = [...set]
+}
+
+function resetTempTaskSelection() {
+  tempSelectedTaskIds.value = []
+}
+
+function confirmTaskFilter() {
+  appliedTaskIds.value = [...tempSelectedTaskIds.value]
+  page.value = 1
+  taskFilterOpen.value = false
+  if (appliedTaskIds.value.length) {
+    showMessage(`已按 ${appliedTaskIds.value.length} 个任务筛选`, 'success')
+  } else {
+    showMessage('已清除任务筛选', 'info')
+  }
+}
 
 const pageSize = 10
 const page = ref(1)
@@ -314,8 +496,8 @@ function avatarBg(id) {
 
 function progressBarColor(row) {
   if (row.status === 'completed') return 'bg-primary'
-  if (row.status === 'delayed') return 'bg-error'
-  if (row.status === 'in_progress') return 'bg-[#f9ab00]'
+  if (row.status === 'delayed') return 'bg-[#eab308]'
+  if (row.status === 'in_progress') return 'bg-[#1d4ed8]'
   return 'bg-secondary'
 }
 
@@ -325,9 +507,9 @@ function statusLabel(s) {
 function statusBadge(s) {
   return {
     normal: 'bg-[#e6f4ea] text-[#137333]',
-    delayed: 'bg-error-container text-on-error-container',
+    delayed: 'bg-[#fef9c3] text-[#854d0e] border border-[#fde047]',
     completed: 'bg-surface-variant text-on-surface-variant',
-    in_progress: 'bg-[#fef7e0] text-[#b06000]',
+    in_progress: 'border border-[#2563eb] bg-[#bfdbfe] text-[#1d4ed8]',
   }[s] || 'bg-surface-variant text-on-surface-variant'
 }
 
@@ -336,8 +518,13 @@ function goDetail(id) {
 }
 
 const addVisible = ref(false)
+const templateSettingsVisible = ref(false)
 function openAdd() {
   addVisible.value = true
+}
+
+function onOpenTemplateSettings() {
+  templateSettingsVisible.value = true
 }
 function onCreate(payload) {
   const id = `STU-${Math.floor(Math.random() * 9000 + 1000)}`
@@ -346,11 +533,34 @@ function onCreate(payload) {
     name: payload.name,
     owner: payload.owner || '—',
     mentor: payload.mentor || '—',
+    templateId: payload.templateId,
+    templateName: payload.templateName || '—',
     progress: 0,
     status: 'normal',
     risk: 'low',
+    taskKeys: [],
   })
   addVisible.value = false
   showMessage('已添加学生', 'success')
 }
 </script>
+
+<style scoped>
+.fade-task-filter-enter-active,
+.fade-task-filter-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-task-filter-enter-active .relative,
+.fade-task-filter-leave-active .relative {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.fade-task-filter-enter-from,
+.fade-task-filter-leave-to {
+  opacity: 0;
+}
+.fade-task-filter-enter-from .relative,
+.fade-task-filter-leave-to .relative {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+}
+</style>

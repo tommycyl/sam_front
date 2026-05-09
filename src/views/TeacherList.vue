@@ -52,12 +52,8 @@
             <th class="px-4 py-3 text-label-caps font-label-caps text-on-surface-variant">
               Teacher Name
             </th>
-            <th class="px-4 py-3 text-label-caps font-label-caps text-on-surface-variant">ID</th>
             <th class="px-4 py-3 text-label-caps font-label-caps text-on-surface-variant">
               学生数量
-            </th>
-            <th class="px-4 py-3 text-label-caps font-label-caps text-on-surface-variant">
-              联系方式
             </th>
             <th
               class="px-4 py-3 text-right text-label-caps font-label-caps text-on-surface-variant"
@@ -93,18 +89,21 @@
                   />
                   <span v-else>{{ initials(row.name) }}</span>
                 </div>
-                <button
-                  type="button"
-                  class="font-bold text-primary hover:text-secondary transition-colors"
-                  @click="goDetail(row.id)"
-                >
-                  {{ row.name }}
-                </button>
+                <div class="min-w-0">
+                  <button
+                    type="button"
+                    class="block text-left font-bold text-primary hover:text-secondary transition-colors"
+                    @click="goDetail(row.id)"
+                  >
+                    {{ row.name }}
+                  </button>
+                  <div class="mt-0.5 text-xs text-on-surface-variant">
+                    {{ roleLabel(row.role) }}
+                  </div>
+                </div>
               </div>
             </td>
-            <td class="px-4 py-3 text-on-surface-variant">{{ row.code }}</td>
             <td class="px-4 py-3">{{ row.studentCount }}</td>
-            <td class="px-4 py-3 text-on-surface-variant">{{ row.email }}</td>
             <td class="px-4 py-3 text-right">
               <div class="flex items-center justify-end space-x-3">
                 <button
@@ -125,7 +124,7 @@
             </td>
           </tr>
           <tr v-if="!pagedRows.length">
-            <td colspan="6" class="px-4 py-12 text-center text-body-sm text-on-surface-variant">
+            <td colspan="4" class="px-4 py-12 text-center text-body-sm text-on-surface-variant">
               暂无数据
             </td>
           </tr>
@@ -195,6 +194,8 @@ const tabs = [
   { value: 'all', label: '全部' },
   { value: 'PM', label: 'PM' },
   { value: 'MENTOR', label: 'MENTOR' },
+  { value: 'PM_MENTOR', label: 'PM & MENTOR' },
+  { value: 'MID_PLATFORM', label: '中台' },
 ]
 const activeTab = ref('all')
 
@@ -289,6 +290,19 @@ function initials(name) {
     .slice(0, 2)
     .join('')
     .toUpperCase()
+}
+
+/** 与新增/编辑弹窗「所属部门」取值一致 */
+function roleLabel(role) {
+  return (
+    {
+      PM: 'PM',
+      MENTOR: 'MENTOR',
+      PM_MENTOR: 'PM & MENTOR',
+      MID_PLATFORM: '中台',
+      TEACHER: '老师',
+    }[role] || role || '—'
+  )
 }
 
 function goDetail(id) {

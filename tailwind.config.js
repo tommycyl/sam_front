@@ -4,6 +4,10 @@ export default {
   theme: {
     extend: {
       colors: {
+        /** Sam's Advisory 登录页品牌色 */
+        'brand-navy': '#002060',
+        'brand-burgundy': '#8b1538',
+
         // Indigo Admin Executive design tokens
         primary: '#060435',
         'primary-container': '#1d1d4b',
@@ -71,6 +75,7 @@ export default {
         'stack-gap': '16px',
       },
       fontFamily: {
+        'login-display': ['"Playfair Display"', 'Georgia', 'Times New Roman', 'serif'],
         'headline-md': ['IBM Plex Sans', 'PingFang SC', 'sans-serif'],
         'display-lg': ['IBM Plex Sans', 'PingFang SC', 'sans-serif'],
         'body-base': ['Inter', 'PingFang SC', 'sans-serif'],

@@ -31,58 +31,55 @@
           <!-- Body -->
           <form class="space-y-4 px-6 py-5" @submit.prevent="submit">
             <div>
-              <label class="block text-body-sm font-semibold text-on-surface" for="t-name">
+              <label
+                class="block text-body-sm font-semibold"
+                :class="errors.name ? 'text-error' : 'text-on-surface'"
+                for="t-name"
+              >
                 教师姓名 <span class="text-error">*</span>
               </label>
               <input
                 id="t-name"
                 v-model="form.name"
                 type="text"
-                required
                 placeholder="请输入姓名"
-                class="mt-1 block w-full rounded-lg border-0 bg-surface-container-low px-3 py-2 text-body-base text-on-surface ring-1 ring-inset ring-outline-variant placeholder:text-outline focus:ring-2 focus:ring-inset focus:ring-primary"
+                class="mt-1 block w-full rounded-lg border-0 bg-surface-container-low px-3 py-2 text-body-base text-on-surface placeholder:text-outline focus:outline-none"
+                :class="
+                  errors.name
+                    ? 'ring-2 ring-inset ring-error focus:ring-error'
+                    : 'ring-1 ring-inset ring-outline-variant focus:ring-2 focus:ring-inset focus:ring-primary'
+                "
+                @input="errors.name = false"
               />
+              <p v-if="errors.name" class="mt-1 text-body-sm text-error">请填写教师姓名</p>
             </div>
 
             <div>
-              <label class="block text-body-sm font-semibold text-on-surface" for="t-role">
-                所属部门
+              <label
+                class="block text-body-sm font-semibold"
+                :class="errors.role ? 'text-error' : 'text-on-surface'"
+                for="t-role"
+              >
+                所属部门 <span class="text-error">*</span>
               </label>
               <select
                 id="t-role"
                 v-model="form.role"
-                class="mt-1 block w-full rounded-lg border-0 bg-surface-container-low px-3 py-2 text-body-base text-on-surface ring-1 ring-inset ring-outline-variant focus:ring-2 focus:ring-inset focus:ring-primary"
+                class="mt-1 block w-full rounded-lg border-0 bg-surface-container-low px-3 py-2 text-body-base text-on-surface focus:outline-none"
+                :class="
+                  errors.role
+                    ? 'ring-2 ring-inset ring-error focus:ring-error'
+                    : 'ring-1 ring-inset ring-outline-variant focus:ring-2 focus:ring-inset focus:ring-primary'
+                "
+                @change="errors.role = false"
               >
+                <option value="" disabled>请选择所属部门</option>
                 <option value="PM">PM</option>
                 <option value="MENTOR">MENTOR</option>
-                <option value="TEACHER">老师</option>
+                <option value="PM_MENTOR">PM &amp; MENTOR</option>
+                <option value="MID_PLATFORM">中台</option>
               </select>
-            </div>
-
-            <div>
-              <label class="block text-body-sm font-semibold text-on-surface" for="t-phone">
-                联系方式
-              </label>
-              <input
-                id="t-phone"
-                v-model="form.phone"
-                type="tel"
-                placeholder="例: +86 138 0000 0000"
-                class="mt-1 block w-full rounded-lg border-0 bg-surface-container-low px-3 py-2 text-body-base text-on-surface ring-1 ring-inset ring-outline-variant placeholder:text-outline focus:ring-2 focus:ring-inset focus:ring-primary"
-              />
-            </div>
-
-            <div>
-              <label class="block text-body-sm font-semibold text-on-surface" for="t-email">
-                电子邮箱
-              </label>
-              <input
-                id="t-email"
-                v-model="form.email"
-                type="email"
-                placeholder="example@school.com"
-                class="mt-1 block w-full rounded-lg border-0 bg-surface-container-low px-3 py-2 text-body-base text-on-surface ring-1 ring-inset ring-outline-variant placeholder:text-outline focus:ring-2 focus:ring-inset focus:ring-primary"
-              />
+              <p v-if="errors.role" class="mt-1 text-body-sm text-error">请选择所属部门</p>
             </div>
           </form>
 
@@ -113,6 +110,7 @@
 
 <script setup>
 import { reactive, watch } from 'vue'
+import { showMessage } from '@/utils/request'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -120,26 +118,58 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:visible', 'submit'])
 
-const form = reactive({ name: '', role: 'PM', phone: '', email: '' })
+const ROLE_OPTIONS = ['PM', 'MENTOR', 'PM_MENTOR', 'MID_PLATFORM']
+
+const form = reactive({ name: '', role: '' })
+
+const errors = reactive({
+  name: false,
+  role: false,
+})
+
+function clearFieldErrors() {
+  errors.name = false
+  errors.role = false
+}
+
+function validateForm() {
+  clearFieldErrors()
+  let valid = true
+  if (!form.name.trim()) {
+    errors.name = true
+    valid = false
+  }
+  if (!form.role || !ROLE_OPTIONS.includes(form.role)) {
+    errors.role = true
+    valid = false
+  }
+  return valid
+}
 
 watch(
   () => props.visible,
   (v) => {
+    clearFieldErrors()
     if (v) {
       form.name = props.initial?.name || ''
-      form.role = props.initial?.role || 'PM'
-      form.phone = props.initial?.phone || ''
-      form.email = props.initial?.email || ''
+      form.role =
+        props.initial?.role && ROLE_OPTIONS.includes(props.initial.role)
+          ? props.initial.role
+          : ''
     }
   },
   { immediate: true },
 )
 
 function close() {
+  clearFieldErrors()
   emit('update:visible', false)
 }
 function submit() {
-  if (!form.name.trim()) return
+  if (!validateForm()) {
+    showMessage('请填写或选择所有必填项', 'warning')
+    return
+  }
   emit('submit', { ...form })
 }
 </script>

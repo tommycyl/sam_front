@@ -29,75 +29,122 @@
           <form class="px-8 pb-8" @submit.prevent="submit">
             <div class="grid grid-cols-1 gap-x-grid-gutter gap-y-6 md:grid-cols-2">
               <div class="flex flex-col gap-2">
-                <label class="text-label-caps font-label-caps text-on-surface-variant">
+                <label
+                  class="text-label-caps font-label-caps"
+                  :class="errors.name ? 'text-error' : 'text-on-surface-variant'"
+                >
                   学生姓名 *
                 </label>
                 <input
                   v-model="form.name"
                   type="text"
-                  required
                   placeholder="姓名"
-                  class="h-12 w-full rounded-lg border-2 border-secondary bg-surface-container-lowest px-4 text-body-base text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  class="h-12 w-full rounded-lg bg-surface-container-lowest px-4 text-body-base text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-2"
+                  :class="
+                    errors.name
+                      ? 'border-2 border-error focus:ring-error/35'
+                      : 'border-2 border-secondary focus:ring-secondary/50'
+                  "
+                  @input="errors.name = false"
                 />
+                <p v-if="errors.name" class="text-body-sm text-error">请填写学生姓名</p>
               </div>
 
               <div class="flex flex-col gap-2">
-                <label class="text-label-caps font-label-caps text-on-surface-variant">
-                  申请起始日期
+                <label
+                  class="text-label-caps font-label-caps"
+                  :class="errors.startDate ? 'text-error' : 'text-on-surface-variant'"
+                >
+                  申请起始日期 *
                 </label>
                 <input
                   v-model="form.startDate"
                   type="text"
                   placeholder="YYYY/MM/DD"
-                  class="h-12 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-body-base text-on-surface placeholder:text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  class="h-12 w-full rounded-lg bg-surface-container-lowest px-4 text-body-base text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-2"
+                  :class="
+                    errors.startDate
+                      ? 'border-2 border-error focus:ring-error/35'
+                      : 'border border-outline-variant focus:border-secondary focus:ring-secondary/30'
+                  "
+                  @input="errors.startDate = false"
                 />
+                <p v-if="errors.startDate" class="text-body-sm text-error">请填写正确日期，格式 YYYY/MM/DD</p>
               </div>
 
-              <div class="flex flex-col gap-2">
-                <label class="text-label-caps font-label-caps text-on-surface-variant">
-                  负责角色
+              <div class="flex flex-col gap-2 md:col-span-2">
+                <label
+                  class="text-label-caps font-label-caps"
+                  :class="errors.templateId ? 'text-error' : 'text-on-surface-variant'"
+                >
+                  任务模板 *
                 </label>
                 <select
-                  v-model="form.role"
-                  class="h-12 w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  v-model="form.templateId"
+                  class="h-12 w-full appearance-none rounded-lg bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:outline-none focus:ring-2"
+                  :class="
+                    errors.templateId
+                      ? 'border-2 border-error focus:ring-error/35'
+                      : 'border border-outline-variant focus:border-secondary focus:ring-secondary/30'
+                  "
                   :style="selectArrow"
+                  @change="errors.templateId = false"
                 >
-                  <option value="PM">PM</option>
-                  <option value="MENTOR">MENTOR</option>
+                  <option value="" disabled>请选择任务模板</option>
+                  <option v-for="t in templateOptions" :key="t.id" :value="t.id">{{ t.name }}</option>
                 </select>
+                <p v-if="errors.templateId" class="text-body-sm text-error">请选择任务模板</p>
               </div>
 
               <div class="flex flex-col gap-2">
-                <label class="text-label-caps font-label-caps text-on-surface-variant">
-                  MENTOR
+                <label
+                  class="text-label-caps font-label-caps"
+                  :class="errors.mentorId ? 'text-error' : 'text-on-surface-variant'"
+                >
+                  MENTOR *
                 </label>
-                <input
-                  v-model="form.mentor"
-                  type="text"
-                  placeholder="Mentor"
-                  class="h-12 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-body-base text-on-surface placeholder:text-outline-variant focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
-                />
+                <select
+                  v-model="form.mentorId"
+                  class="h-12 w-full appearance-none rounded-lg bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:outline-none focus:ring-2 disabled:opacity-60"
+                  :class="
+                    errors.mentorId
+                      ? 'border-2 border-error focus:ring-error/35'
+                      : 'border border-outline-variant focus:border-secondary focus:ring-secondary/30'
+                  "
+                  :disabled="optionsLoading"
+                  :style="selectArrow"
+                  @change="errors.mentorId = false"
+                >
+                  <option value="" disabled>{{ optionsLoading ? '加载中…' : '请选择 MENTOR' }}</option>
+                  <option v-for="o in mentorOptions" :key="o.id" :value="o.id">{{ o.name }}</option>
+                </select>
+                <p v-if="errors.mentorId" class="text-body-sm text-error">请选择 MENTOR</p>
               </div>
 
               <div class="flex flex-col gap-2">
-                <label class="text-label-caps font-label-caps text-on-surface-variant">PM</label>
-                <input
-                  v-model="form.owner"
-                  type="text"
-                  placeholder="PM"
-                  class="h-12 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-body-base text-on-surface placeholder:text-outline-variant focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
-                />
+                <label
+                  class="text-label-caps font-label-caps"
+                  :class="errors.pmId ? 'text-error' : 'text-on-surface-variant'"
+                >
+                  PM *
+                </label>
+                <select
+                  v-model="form.pmId"
+                  class="h-12 w-full appearance-none rounded-lg bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:outline-none focus:ring-2 disabled:opacity-60"
+                  :class="
+                    errors.pmId
+                      ? 'border-2 border-error focus:ring-error/35'
+                      : 'border border-outline-variant focus:border-secondary focus:ring-secondary/30'
+                  "
+                  :disabled="optionsLoading"
+                  :style="selectArrow"
+                  @change="errors.pmId = false"
+                >
+                  <option value="" disabled>{{ optionsLoading ? '加载中…' : '请选择 PM' }}</option>
+                  <option v-for="o in pmOptions" :key="o.id" :value="o.id">{{ o.name }}</option>
+                </select>
+                <p v-if="errors.pmId" class="text-body-sm text-error">请选择 PM</p>
               </div>
-            </div>
-
-            <div class="mt-8 flex items-center gap-3">
-              <input
-                id="bs-meeting"
-                v-model="form.bsMeeting"
-                type="checkbox"
-                class="h-5 w-5 rounded border border-outline-variant bg-surface-variant text-secondary focus:ring-secondary"
-              />
-              <label for="bs-meeting" class="text-body-base text-on-surface">BS 会议已完成</label>
             </div>
           </form>
 
@@ -124,7 +171,10 @@
 </template>
 
 <script setup>
-import { reactive, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
+import { fetchStudentFormMentorOptions, fetchStudentFormPmOptions } from '@/api/student'
+import { getStudentTemplateSelectOptions } from '@/utils/studentTaskTemplates'
+import { showMessage } from '@/utils/request'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -135,14 +185,85 @@ const emit = defineEmits(['update:visible', 'submit'])
 const today = new Date()
 const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`
 
+/** 接口未就绪时与列表 mock 负责人/MENTOR 大致对齐 */
+const FALLBACK_PM_OPTIONS = [
+  { id: 'pm-zs', name: 'Zhang San' },
+  { id: 'pm-ls', name: 'Li Si' },
+  { id: 'pm-ww', name: 'Wang Wu' },
+]
+const FALLBACK_MENTOR_OPTIONS = [
+  { id: 'm-sm', name: 'Dr. Smith' },
+  { id: 'm-dv', name: 'Prof. Davis' },
+  { id: 'm-ml', name: 'Dr. Miller' },
+  { id: 'm-ls', name: 'Prof. Lee' },
+]
+
 const form = reactive({
   name: '',
   startDate: todayStr,
-  role: 'PM',
-  mentor: '',
-  owner: '',
-  bsMeeting: false,
+  templateId: '',
+  pmId: '',
+  mentorId: '',
 })
+
+const pmOptions = ref([])
+const mentorOptions = ref([])
+const templateOptions = ref([])
+const optionsLoading = ref(false)
+
+const errors = reactive({
+  name: false,
+  startDate: false,
+  templateId: false,
+  mentorId: false,
+  pmId: false,
+})
+
+const START_DATE_RE = /^\d{4}\/\d{2}\/\d{2}$/
+
+function clearFieldErrors() {
+  errors.name = false
+  errors.startDate = false
+  errors.templateId = false
+  errors.mentorId = false
+  errors.pmId = false
+}
+
+function isValidStartDate(s) {
+  const t = String(s || '').trim()
+  if (!START_DATE_RE.test(t)) return false
+  const [y, mo, d] = t.split('/').map(Number)
+  const dt = new Date(y, mo - 1, d)
+  return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d
+}
+
+function validateForm() {
+  clearFieldErrors()
+  let valid = true
+  if (!form.name.trim()) {
+    errors.name = true
+    valid = false
+  }
+  if (!String(form.startDate || '').trim() || !isValidStartDate(form.startDate)) {
+    errors.startDate = true
+    valid = false
+  }
+  if (!form.templateId) {
+    errors.templateId = true
+    valid = false
+  }
+  if (!optionsLoading.value) {
+    if (!form.mentorId) {
+      errors.mentorId = true
+      valid = false
+    }
+    if (!form.pmId) {
+      errors.pmId = true
+      valid = false
+    }
+  }
+  return valid
+}
 
 const selectArrow = {
   backgroundImage:
@@ -152,27 +273,105 @@ const selectArrow = {
   backgroundSize: '1em',
 }
 
+function normalizePersonOptions(data) {
+  if (!data) return []
+  if (Array.isArray(data)) {
+    return data.map((x) =>
+      typeof x === 'string' ? { id: x, name: x } : { id: String(x.id), name: String(x.name ?? x.id) },
+    )
+  }
+  if (Array.isArray(data.list)) {
+    return data.list.map((x) => ({ id: String(x.id), name: String(x.name ?? x.id) }))
+  }
+  return []
+}
+
+function matchOptionId(options, name, existingId) {
+  if (existingId && options.some((o) => o.id === String(existingId))) return String(existingId)
+  if (!name) return ''
+  const o = options.find((x) => x.name === name)
+  return o ? String(o.id) : ''
+}
+
+function refreshTemplateOptions() {
+  templateOptions.value = getStudentTemplateSelectOptions()
+}
+
+async function loadRoleOptions() {
+  optionsLoading.value = true
+  let pm = []
+  let mentor = []
+  try {
+    const [pmData, mentorData] = await Promise.all([
+      fetchStudentFormPmOptions({ silent: true, loading: false }),
+      fetchStudentFormMentorOptions({ silent: true, loading: false }),
+    ])
+    pm = normalizePersonOptions(pmData)
+    mentor = normalizePersonOptions(mentorData)
+  } catch {
+    pm = [...FALLBACK_PM_OPTIONS]
+    mentor = [...FALLBACK_MENTOR_OPTIONS]
+  }
+  if (!pm.length) pm = [...FALLBACK_PM_OPTIONS]
+  if (!mentor.length) mentor = [...FALLBACK_MENTOR_OPTIONS]
+  pmOptions.value = pm
+  mentorOptions.value = mentor
+  optionsLoading.value = false
+}
+
 watch(
   () => props.visible,
-  (v) => {
-    if (v) {
-      form.name = props.initial?.name || ''
-      form.startDate = props.initial?.startDate || todayStr
-      form.role = props.initial?.role || 'PM'
-      form.mentor = props.initial?.mentor || ''
-      form.owner = props.initial?.owner || ''
-      form.bsMeeting = props.initial?.bsMeeting || false
-    }
+  async (v) => {
+    if (!v) return
+    clearFieldErrors()
+    refreshTemplateOptions()
+    await loadRoleOptions()
+    form.name = props.initial?.name || ''
+    form.startDate = props.initial?.startDate || todayStr
+    const initTid = props.initial?.templateId
+    const opts = templateOptions.value
+    form.templateId =
+      initTid && opts.some((o) => o.id === String(initTid)) ? String(initTid) : opts[0]?.id || ''
+    form.pmId = matchOptionId(
+      pmOptions.value,
+      props.initial?.owner,
+      props.initial?.pmId,
+    )
+    form.mentorId = matchOptionId(
+      mentorOptions.value,
+      props.initial?.mentor,
+      props.initial?.mentorId,
+    )
   },
   { immediate: true },
 )
 
 function close() {
+  clearFieldErrors()
   emit('update:visible', false)
 }
 function submit() {
-  if (!form.name.trim()) return
-  emit('submit', { ...form })
+  if (optionsLoading.value) {
+    showMessage('负责人选项加载中，请稍候', 'info')
+    return
+  }
+  if (!validateForm()) {
+    showMessage('请填写或选择所有必填项', 'warning')
+    return
+  }
+  const pm = pmOptions.value.find((o) => o.id === form.pmId)
+  const ment = mentorOptions.value.find((o) => o.id === form.mentorId)
+  const tpl = templateOptions.value.find((o) => o.id === form.templateId)
+  emit('submit', {
+    name: form.name.trim(),
+    startDate: form.startDate,
+    templateId: form.templateId,
+    templateName: tpl?.name || '',
+    owner: pm?.name || '',
+    mentor: ment?.name || '',
+    pmId: form.pmId,
+    mentorId: form.mentorId,
+  })
 }
 </script>
 

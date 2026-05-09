@@ -1,18 +1,23 @@
 <template>
-  <div class="flex min-h-screen bg-background text-on-background font-body-base antialiased">
-    <!-- Side Navigation -->
-    <AppSidebar />
+  <div class="min-h-screen font-body-base antialiased">
+    <router-view v-slot="{ Component, route }">
+      <template v-if="route.meta.public">
+        <component :is="Component" />
+      </template>
+      <template v-else>
+        <div class="flex min-h-screen bg-background text-on-background">
+          <AppSidebar />
 
-    <!-- Main Wrapper -->
-    <div class="flex-1 ml-64 flex flex-col min-w-0">
-      <AppTopBar />
+          <div class="ml-64 flex min-w-0 flex-1 flex-col">
+            <AppTopBar />
 
-      <main class="flex-1 overflow-auto">
-        <router-view v-slot="{ Component }">
-          <component :is="Component" />
-        </router-view>
-      </main>
-    </div>
+            <main class="flex-1 overflow-auto">
+              <component :is="Component" />
+            </main>
+          </div>
+        </div>
+      </template>
+    </router-view>
 
     <!-- Global Loading -->
     <div
