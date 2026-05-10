@@ -76,8 +76,8 @@
             class="relative inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-body-sm font-semibold text-primary transition-colors hover:bg-surface-container-low"
             @click="openTaskFilterPanel"
           >
-            <span class="material-symbols-outlined text-[20px]">tune</span>
-            筛选
+            <span class="material-symbols-outlined text-[20px]">filter_alt</span>
+            按条件筛选
             <span
               v-if="appliedTaskIds.length"
               class="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-bold text-on-secondary"
@@ -87,88 +87,162 @@
       </div>
     </div>
 
-    <!-- 任务多选筛选卡片 -->
+    <!-- 按条件筛选：大弹窗 — 可勾选任务下拉（最多 3 项）+ 学生 × 任务状态表 -->
     <Teleport to="body">
       <Transition name="fade-task-filter">
         <div
           v-if="taskFilterOpen"
-          class="fixed inset-0 z-[90] flex items-center justify-center p-4"
+          class="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="task-filter-title"
         >
-          <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-[2px]" @click="closeTaskFilterPanel"></div>
+          <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-[2px]" @click="dismissTaskFilterBackdrop"></div>
           <div
-            class="relative w-full max-w-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-modal"
+            class="relative flex h-[min(92vh,52rem)] w-full max-w-[min(96vw,56rem)] flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-modal"
             @click.stop
           >
-            <div class="border-b border-outline-variant px-6 py-4">
-              <h3 id="task-filter-title" class="text-headline-md font-headline-md text-primary">按任务筛选</h3>
+            <div class="shrink-0 border-b border-outline-variant px-5 py-4 sm:px-6">
+              <h3 id="task-filter-title" class="text-headline-md font-headline-md text-primary">按条件筛选</h3>
               <p class="mt-1 text-body-sm text-on-surface-variant">
-                多选任务后点击确认，列表将只显示关联了所选任务的学生。
+                在下拉框中勾选最多 3 个任务，表格展示每位学生对应任务的状态；勾选会立即同步到下方学生列表。
               </p>
             </div>
 
-            <div
-              class="px-6 py-4"
-              :class="
-                taskOptionsLoading || !taskOptions.length
-                  ? ''
-                  : taskOptions.length > 10
-                    ? 'max-h-[min(27.5rem,50vh)] overflow-y-auto overscroll-contain'
-                    : ''
-              "
-            >
-              <div v-if="taskOptionsLoading" class="flex flex-col items-center justify-center gap-3 py-10 text-body-sm text-on-surface-variant">
-                <div class="h-8 w-8 animate-spin rounded-full border-2 border-secondary border-t-transparent"></div>
-                正在加载任务列表…
+            <div class="shrink-0 border-b border-outline-variant px-5 py-4 sm:px-6" @click="taskDropdownOpen = false">
+              <div class="flex flex-wrap items-end justify-between gap-4">
+                <div class="relative min-w-0" @click.stop>
+                  <span class="mb-1.5 block text-label-caps font-label-caps text-on-surface-variant">对比任务</span>
+                  <button
+                    type="button"
+                    class="flex h-10 w-full min-w-[12rem] max-w-md items-center justify-between gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-left text-body-sm text-on-surface shadow-sm transition-colors hover:border-primary/60"
+                    :aria-expanded="taskDropdownOpen"
+                    aria-haspopup="listbox"
+                    @click="taskDropdownOpen = !taskDropdownOpen"
+                  >
+                    <span class="min-w-0 truncate font-medium">{{ taskDropdownSummary }}</span>
+                    <span class="material-symbols-outlined shrink-0 text-[22px] text-on-surface-variant">
+                      {{ taskDropdownOpen ? 'expand_less' : 'expand_more' }}
+                    </span>
+                  </button>
+                  <div
+                    v-show="taskDropdownOpen"
+                    class="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto overscroll-contain rounded-lg border border-outline-variant bg-surface-container-lowest py-2 shadow-lg sm:right-auto sm:w-[min(100%,22rem)]"
+                    role="listbox"
+                    @click.stop
+                  >
+                    <div v-if="taskOptionsLoading" class="flex flex-col items-center gap-2 px-4 py-8 text-body-sm text-on-surface-variant">
+                      <div class="h-7 w-7 animate-spin rounded-full border-2 border-secondary border-t-transparent"></div>
+                      正在加载任务…
+                    </div>
+                    <div v-else-if="!taskOptions.length" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">
+                      暂无任务数据
+                    </div>
+                    <ul v-else class="space-y-0.5 px-1">
+                      <li
+                        v-for="opt in taskOptions"
+                        :key="opt.id"
+                        class="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-surface-container-low"
+                      >
+                        <input
+                          :id="'task-opt-' + opt.id"
+                          type="checkbox"
+                          class="h-4 w-4 shrink-0 rounded border-outline-variant text-secondary focus:ring-secondary"
+                          :checked="tempSelectedTaskIds.includes(opt.id)"
+                          @change="toggleTempTask(opt.id, $event.target.checked)"
+                        />
+                        <label
+                          :for="'task-opt-' + opt.id"
+                          class="min-w-0 flex-1 cursor-pointer truncate text-body-sm text-on-surface"
+                        >{{ opt.name }}</label>
+                      </li>
+                    </ul>
+                    <p v-if="taskOptionsHint" class="border-t border-outline-variant/80 px-3 py-2 text-xs text-on-surface-variant">
+                      {{ taskOptionsHint }}
+                    </p>
+                  </div>
+                </div>
+                <p class="max-w-xs text-xs text-on-surface-variant">
+                  已选 {{ tempSelectedTaskIds.length }} / 3
+                </p>
               </div>
-              <div v-else-if="!taskOptions.length" class="py-8 text-center text-body-sm text-on-surface-variant">
-                暂无任务数据
-              </div>
-              <ul v-else class="space-y-1">
-                <li
-                  v-for="opt in taskOptions"
-                  :key="opt.id"
-                  class="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-surface-container-low"
-                >
-                  <input
-                    :id="'task-opt-' + opt.id"
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-outline-variant text-secondary focus:ring-secondary"
-                    :checked="tempSelectedTaskIds.includes(opt.id)"
-                    @change="toggleTempTask(opt.id, $event.target.checked)"
-                  />
-                  <label
-                    :for="'task-opt-' + opt.id"
-                    class="flex-1 cursor-pointer text-body-base text-on-surface"
-                  >{{ opt.name }}</label>
-                </li>
-              </ul>
-              <p v-if="taskOptionsHint" class="mt-3 text-body-sm text-on-surface-variant">{{ taskOptionsHint }}</p>
             </div>
 
-            <div class="flex flex-wrap items-center justify-end gap-2 border-t border-outline-variant bg-surface-container-low px-6 py-4">
+            <div class="min-h-0 flex-1 overflow-auto px-0 pb-3 pt-0" @click="taskDropdownOpen = false">
+              <table class="w-full min-w-[20rem] border-collapse text-left text-body-sm">
+                <thead class="sticky top-0 z-10 border-b border-surface-variant bg-surface-container-low">
+                  <tr>
+                    <th class="whitespace-nowrap py-3 pl-5 pr-3 text-label-caps font-label-caps text-on-surface-variant sm:pl-6">
+                      学生姓名
+                    </th>
+                    <th
+                      v-for="(tid, ci) in tempSelectedTaskIds"
+                      :key="tid"
+                      class="min-w-[7rem] py-3 text-label-caps font-label-caps text-on-surface-variant"
+                      :class="ci === tempSelectedTaskIds.length - 1 ? 'pl-3 pr-5 sm:pr-6' : 'px-3'"
+                    >
+                      {{ taskColumnTitle(tid) }}
+                      <span class="ml-0.5 tabular-nums text-on-surface-variant/70">({{ ci + 1 }})</span>
+                    </th>
+                    <th
+                      v-if="!tempSelectedTaskIds.length"
+                      class="py-3 pl-3 pr-5 text-label-caps font-label-caps text-on-surface-variant sm:pr-6"
+                    >
+                      任务列
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-surface-variant">
+                  <template v-if="tempSelectedTaskIds.length">
+                    <tr v-for="row in matrixTableRows" :key="row.id" class="bg-surface-container-lowest hover:bg-surface-bright/80">
+                      <td class="whitespace-nowrap py-3 pl-5 pr-3 font-semibold text-on-surface sm:pl-6">{{ row.name }}</td>
+                      <td
+                        v-for="(tid, ci) in tempSelectedTaskIds"
+                        :key="tid + '-' + row.id"
+                        class="py-3 align-middle"
+                        :class="ci === tempSelectedTaskIds.length - 1 ? 'pl-3 pr-5 sm:pr-6' : 'px-3'"
+                      >
+                        <span
+                          v-if="matrixTaskStatus(row, tid) == null"
+                          class="inline-flex rounded-md border border-outline-variant/80 bg-surface-container-high px-2 py-1 text-xs font-medium text-on-surface-variant"
+                        >无此任务</span>
+                        <span
+                          v-else
+                          class="inline-flex rounded-md border px-2 py-1 text-xs font-medium"
+                          :class="matrixStatusClass(matrixTaskStatus(row, tid))"
+                        >{{ matrixStatusLabel(matrixTaskStatus(row, tid)) }}</span>
+                      </td>
+                    </tr>
+                    <tr v-if="!matrixTableRows.length">
+                      <td :colspan="1 + tempSelectedTaskIds.length" class="px-5 py-12 text-center text-on-surface-variant sm:px-6">
+                        <template v-if="!baseFiltered.length">暂无学生数据</template>
+                        <template v-else>暂无符合条件的学生：仅在至少一个已选任务下「有任务」的学生会显示。</template>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr v-else>
+                    <td colspan="2" class="px-5 py-14 text-center text-on-surface-variant sm:px-6">
+                      请先在上方下拉框中勾选任务（最多 3 项），此处将展示每位学生对应任务的状态。
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-outline-variant bg-surface-container-low px-5 py-4 sm:px-6">
               <button
                 type="button"
-                class="rounded-lg px-4 py-2 text-body-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+                class="rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-2.5 text-body-sm font-semibold text-on-surface shadow-sm transition-colors hover:border-primary/50 hover:bg-surface-container-low hover:text-primary"
                 @click="resetTempTaskSelection"
               >
                 清空选择
               </button>
               <button
                 type="button"
-                class="rounded-lg px-4 py-2 text-body-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-                @click="closeTaskFilterPanel"
+                class="rounded-lg border border-error bg-surface-container-lowest px-5 py-2.5 text-body-sm font-semibold text-error transition-colors hover:bg-error-container/35"
+                @click="cancelTaskFilterPanel"
               >
                 取消
-              </button>
-              <button
-                type="button"
-                class="rounded-lg bg-primary px-5 py-2 text-body-sm font-semibold text-on-primary transition-colors hover:bg-primary-container"
-                @click="confirmTaskFilter"
-              >
-                确认
               </button>
             </div>
           </div>
@@ -395,12 +469,32 @@ onMounted(loadStudents)
 const ownerOptions = computed(() => [...new Set(rows.value.map((r) => r.owner))])
 const mentorOptions = computed(() => [...new Set(rows.value.map((r) => r.mentor))])
 
+const MAX_TASK_FILTER = 3
+
 const appliedTaskIds = ref([])
+/** 打开「按条件筛选」弹窗时的任务筛选快照；点「取消」时恢复 */
+const taskFilterSnapshot = ref([])
 const taskFilterOpen = ref(false)
 const taskOptionsLoading = ref(false)
 const taskOptions = ref([])
 const taskOptionsHint = ref('')
 const tempSelectedTaskIds = ref([])
+const taskDropdownOpen = ref(false)
+
+/** 仅关键字 / PM / Mentor / 风险，不含「按任务」条件 — 供弹窗矩阵展示 */
+const baseFiltered = computed(() =>
+  rows.value.filter((r) => {
+    const kw = filters.value.keyword.trim().toLowerCase()
+    if (kw) {
+      const haystack = `${r.name || ''} ${r.code || r.id || ''}`.toLowerCase()
+      if (!haystack.includes(kw)) return false
+    }
+    if (filters.value.owner && r.owner !== filters.value.owner) return false
+    if (filters.value.mentor && r.mentor !== filters.value.mentor) return false
+    if (filters.value.risk && r.risk !== filters.value.risk) return false
+    return true
+  }),
+)
 
 const filtered = computed(() =>
   rows.value.filter((r) => {
@@ -421,6 +515,58 @@ const filtered = computed(() =>
   }),
 )
 
+const taskDropdownSummary = computed(() => {
+  if (!tempSelectedTaskIds.value.length) return '勾选任务（最多 3 项）'
+  return tempSelectedTaskIds.value
+    .map((id) => {
+      const o = taskOptions.value.find((x) => x.id === id)
+      return o?.name || id
+    })
+    .join('、')
+})
+
+function taskColumnTitle(taskId) {
+  const o = taskOptions.value.find((x) => x.id === taskId)
+  return o?.name || taskId
+}
+
+function matrixTaskStatus(row, taskTitle) {
+  const m = row.taskStatusByTitle
+  if (!m || typeof m !== 'object') return null
+  return m[taskTitle] ?? null
+}
+
+/** 矩阵表行：至少在一个已选任务列上有任务（非「无此任务」整行隐藏） */
+const matrixTableRows = computed(() => {
+  const tids = tempSelectedTaskIds.value
+  if (!tids.length) return []
+  return baseFiltered.value.filter((row) => tids.some((tid) => matrixTaskStatus(row, tid) != null))
+})
+
+function matrixStatusLabel(status) {
+  return (
+    {
+      completed: '已完成',
+      delayed: '已延期',
+      in_progress: '进行中',
+      pending: '未开始',
+      normal: '正常',
+    }[status] || status
+  )
+}
+
+function matrixStatusClass(status) {
+  return (
+    {
+      completed: 'border border-[#86efac] bg-[#dcfce7] text-[#166534]',
+      delayed: 'border border-[#fde047] bg-[#fef9c3] text-[#854d0e]',
+      in_progress: 'border border-[#2563eb] bg-[#bfdbfe] text-[#1d4ed8]',
+      pending: 'border border-outline-variant bg-surface-container-high text-on-surface-variant',
+      normal: 'border border-outline-variant bg-surface-container-high text-on-surface-variant',
+    }[status] || 'border border-outline-variant bg-surface-container-high text-on-surface-variant'
+  )
+}
+
 function normalizeTaskOptions(data) {
   if (!data) return []
   if (Array.isArray(data)) {
@@ -435,8 +581,10 @@ function normalizeTaskOptions(data) {
 }
 
 async function openTaskFilterPanel() {
+  taskFilterSnapshot.value = [...appliedTaskIds.value]
   taskFilterOpen.value = true
-  tempSelectedTaskIds.value = [...appliedTaskIds.value]
+  taskDropdownOpen.value = false
+  tempSelectedTaskIds.value = appliedTaskIds.value.slice(0, MAX_TASK_FILTER)
   taskOptionsHint.value = ''
   taskOptionsLoading.value = true
   taskOptions.value = []
@@ -455,30 +603,43 @@ async function openTaskFilterPanel() {
   }
 }
 
-function closeTaskFilterPanel() {
+/** 点遮罩：关闭弹窗，保留当前勾选（已实时同步到列表） */
+function dismissTaskFilterBackdrop() {
   taskFilterOpen.value = false
+  taskDropdownOpen.value = false
+}
+
+/** 取消：恢复打开弹窗前的任务筛选并关闭 */
+function cancelTaskFilterPanel() {
+  appliedTaskIds.value = [...taskFilterSnapshot.value]
+  tempSelectedTaskIds.value = taskFilterSnapshot.value.slice(0, MAX_TASK_FILTER)
+  taskFilterOpen.value = false
+  taskDropdownOpen.value = false
 }
 
 function toggleTempTask(id, checked) {
-  const set = new Set(tempSelectedTaskIds.value)
-  if (checked) set.add(id)
-  else set.delete(id)
-  tempSelectedTaskIds.value = [...set]
+  const cur = [...tempSelectedTaskIds.value]
+  const idx = cur.indexOf(id)
+  if (checked) {
+    if (idx >= 0) return
+    if (cur.length >= MAX_TASK_FILTER) {
+      showMessage(`最多勾选 ${MAX_TASK_FILTER} 个任务`, 'info')
+      return
+    }
+    cur.push(id)
+  } else if (idx >= 0) {
+    cur.splice(idx, 1)
+  }
+  tempSelectedTaskIds.value = cur
+  appliedTaskIds.value = cur.slice(0, MAX_TASK_FILTER)
+  page.value = 1
 }
 
 function resetTempTaskSelection() {
   tempSelectedTaskIds.value = []
-}
-
-function confirmTaskFilter() {
-  appliedTaskIds.value = [...tempSelectedTaskIds.value]
+  appliedTaskIds.value = []
   page.value = 1
-  taskFilterOpen.value = false
-  if (appliedTaskIds.value.length) {
-    showMessage(`已按 ${appliedTaskIds.value.length} 个任务筛选`, 'success')
-  } else {
-    showMessage('已清除任务筛选', 'info')
-  }
+  showMessage('已清除任务筛选', 'info')
 }
 
 const pageSize = 10
