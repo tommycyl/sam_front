@@ -126,7 +126,12 @@
 
     <!-- 任务时间表（与学生详情相同交互：周连续条带 / 月分页横滑；周/月切换在时间表卡片内右上角） -->
     <h3 class="text-headline-md font-headline-md text-primary">任务时间表</h3>
-    <TaskTimelinePanel v-model:range="range" :tasks="tasks" subtitle-kind="student" />
+    <TaskTimelinePanel
+      v-model:range="range"
+      :tasks="tasksForTimeline"
+      subtitle-kind="student"
+      :schedule-heading="teacherTimelineScheduleTitle"
+    />
 
     <!-- 名下任务：名称、学生、时间 -->
     <section class="space-y-4">
@@ -167,8 +172,14 @@
             <div class="h-2 w-2 rounded-full" :class="t.dotColor"></div>
           </div>
           <div class="min-w-0 flex-1 basis-[140px] md:min-w-0 md:flex-none">
-            <div class="text-sm font-bold leading-snug break-words" :class="t.status === 'delayed' ? 'text-error' : ''">
-              {{ t.title }}
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-sm font-bold leading-snug break-words" :class="t.status === 'delayed' ? 'text-error' : ''">
+                {{ t.title }}
+              </span>
+              <span
+                v-if="t.isLongTerm"
+                class="shrink-0 rounded border border-outline-variant bg-surface-container-high px-1.5 py-0.5 text-[10px] font-semibold text-on-surface-variant"
+              >长期</span>
             </div>
           </div>
           <div class="min-w-0 w-full text-sm leading-snug text-on-surface-variant break-words sm:w-auto md:min-w-0 md:text-center">
@@ -212,6 +223,12 @@ const teacher = ref({
   avatar: '',
 })
 
+/** 时间表顶栏：老师姓名 +「时间表」 */
+const teacherTimelineScheduleTitle = computed(() => {
+  const n = String(teacher.value?.name || '').trim()
+  return n ? `${n} 时间表` : '时间表'
+})
+
 const summaryStats = ref({
   studentCount: 0,
   inProgressCount: 0,
@@ -249,6 +266,12 @@ function avatarFallback(name) {
 
 const students = ref([])
 const tasks = ref([])
+
+function isLongTermTask(t) {
+  return Boolean(t?.isLongTerm)
+}
+
+const tasksForTimeline = computed(() => tasks.value.filter((t) => !isLongTermTask(t)))
 
 async function loadTeacher() {
   try {

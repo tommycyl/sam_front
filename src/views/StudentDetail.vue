@@ -103,26 +103,81 @@
         </div>
       </section>
 
-      <TaskTimelinePanel v-model:range="range" :tasks="tasks" subtitle-kind="teacher" />
+      <TaskTimelinePanel
+        v-model:range="range"
+        :tasks="tasksForTimeline"
+        subtitle-kind="teacher"
+        :schedule-heading="studentTimelineScheduleTitle"
+      />
 
       <!-- Task list -->
       <section class="space-y-4">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <h2 class="text-headline-md font-headline-md text-on-surface">任务明细</h2>
-          <span class="text-body-sm text-on-surface-variant">{{ tasks.length }}个</span>
+          <div class="flex flex-wrap items-center gap-3">
+            <div
+              class="inline-flex shrink-0 rounded-lg border border-outline-variant bg-surface-container-low p-0.5"
+              role="group"
+              aria-label="任务明细筛选"
+            >
+              <button
+                type="button"
+                class="rounded-md px-3 py-1.5 text-body-sm font-semibold transition-colors"
+                :class="
+                  taskDetailFilter === 'all'
+                    ? 'bg-surface-container-lowest text-primary shadow-sm'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                "
+                @click="setTaskDetailFilter('all')"
+              >
+                全部任务
+              </button>
+              <button
+                type="button"
+                class="rounded-md px-3 py-1.5 text-body-sm font-semibold transition-colors"
+                :class="
+                  taskDetailFilter === 'long_term'
+                    ? 'bg-surface-container-lowest text-primary shadow-sm'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                "
+                @click="setTaskDetailFilter('long_term')"
+              >
+                长期任务
+              </button>
+            </div>
+            <span class="shrink-0 text-body-sm text-on-surface-variant">
+              <template v-if="taskDetailFilter === 'all'">{{ tasks.length }} 个</template>
+              <template v-else>{{ tasksSortedForDetail.length }} / {{ tasks.length }} 个</template>
+            </span>
+          </div>
         </div>
         <div class="divide-y divide-surface-variant overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
           <div
-            v-for="t in tasksSortedForDetail"
-            :key="t.id || `${t.title}|${t.startDate}|${t.endDate}`"
-            class="flex flex-wrap items-start gap-x-4 gap-y-2 p-4 md:grid md:grid-cols-[2rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center md:gap-x-4 md:gap-y-0"
+            v-if="!tasksSortedForDetail.length"
+            class="px-4 py-10 text-center text-body-sm text-on-surface-variant"
           >
+            {{
+              taskDetailFilter === 'long_term' ? '暂无长期任务' : '暂无任务'
+            }}
+          </div>
+          <template v-else>
+            <div
+              v-for="t in tasksSortedForDetail"
+              :key="t.id || `${t.title}|${t.startDate}|${t.endDate}`"
+              class="flex flex-wrap items-start gap-x-4 gap-y-2 p-4 md:grid md:grid-cols-[2rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center md:gap-x-4 md:gap-y-0"
+            >
             <div class="flex w-8 shrink-0 justify-center pt-0.5 md:pt-0">
               <div class="h-2 w-2 rounded-full" :class="t.dotColor"></div>
             </div>
             <div class="min-w-0 flex-1 basis-[140px] md:min-w-0 md:flex-none">
-              <div class="text-sm font-bold leading-snug break-words" :class="t.status === 'delayed' ? 'text-error' : ''">
-                {{ t.title }}
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-sm font-bold leading-snug break-words" :class="t.status === 'delayed' ? 'text-error' : ''">
+                  {{ t.title }}
+                </span>
+                <span
+                  v-if="t.isLongTerm"
+                  class="shrink-0 rounded border border-outline-variant bg-surface-container-high px-1.5 py-0.5 text-[10px] font-semibold text-on-surface-variant"
+                >长期</span>
               </div>
             </div>
             <div class="min-w-0 w-full text-sm leading-snug text-on-surface-variant break-words sm:w-auto md:min-w-0 md:text-center">
@@ -147,7 +202,8 @@
                 修改
               </button>
             </div>
-          </div>
+            </div>
+          </template>
         </div>
       </section>
     </div>
@@ -171,6 +227,10 @@
               <h3 id="task-edit-title" class="text-headline-md font-headline-md text-primary">修改任务</h3>
               <p v-if="editingTask" class="mt-1 text-body-sm text-on-surface-variant">
                 任务：<span class="font-semibold text-on-surface">{{ editingTask.title }}</span>
+                <span
+                  v-if="editingTask.isLongTerm"
+                  class="ml-2 inline-block rounded border border-outline-variant bg-surface-container-high px-1.5 py-0.5 text-[10px] font-semibold text-on-surface-variant"
+                >长期</span>
               </p>
             </div>
             <div class="space-y-4 px-6 py-5">
@@ -228,6 +288,21 @@
                   </option>
                 </select>
               </div>
+              <div>
+                <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-edit-longterm">
+                  是否长期任务
+                </label>
+                <select
+                  id="task-edit-longterm"
+                  v-model="draftLongTermStr"
+                  class="h-11 w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  :style="selectArrowStyle"
+                >
+                  <option value="0">否</option>
+                  <option value="1">是</option>
+                </select>
+                <p class="mt-1 text-body-sm text-on-surface-variant">选「是」时不在上方时间表展示，仅在任务明细中显示。</p>
+              </div>
             </div>
             <div class="flex justify-end gap-2 border-t border-outline-variant bg-surface-container-low px-6 py-4">
               <button
@@ -267,7 +342,9 @@
           >
             <div class="border-b border-outline-variant px-6 py-4">
               <h3 id="task-add-title" class="text-headline-md font-headline-md text-primary">新增任务</h3>
-              <p class="mt-1 text-body-sm text-on-surface-variant">为学生添加一条任务，保存后将出现在时间轴与任务明细中。</p>
+              <p class="mt-1 text-body-sm text-on-surface-variant">
+                为学生添加任务。默认会出现在时间表与任务明细；若选「长期任务」，则仅在下方任务明细中显示。
+              </p>
             </div>
             <div class="space-y-4 px-6 py-5">
               <div>
@@ -336,6 +413,20 @@
                   </option>
                 </select>
               </div>
+              <div>
+                <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-add-longterm">
+                  是否长期任务
+                </label>
+                <select
+                  id="task-add-longterm"
+                  v-model="newLongTermStr"
+                  class="h-11 w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  :style="selectArrowStyle"
+                >
+                  <option value="0">否</option>
+                  <option value="1">是</option>
+                </select>
+              </div>
             </div>
             <div class="flex justify-end gap-2 border-t border-outline-variant bg-surface-container-low px-6 py-4">
               <button
@@ -388,6 +479,12 @@ const student = ref({
 
 const tasks = ref([])
 const teacherList = ref([])
+
+/** 时间表左侧竖栏：学生姓名 +「时间表」 */
+const studentTimelineScheduleTitle = computed(() => {
+  const n = String(student.value?.name || '').trim()
+  return n ? `${n} 时间表` : '时间表'
+})
 
 async function loadDetail() {
   try {
@@ -489,20 +586,41 @@ function dayOffsetFrom(a, b) {
   return Math.round((startOfDay(b) - startOfDay(a)) / 86400000)
 }
 
-const overdueTasks = computed(() => tasks.value.filter((t) => t.status === 'delayed'))
-const overdueCount = computed(() => overdueTasks.value.length)
-const weeklyTasks = computed(() => tasks.value.filter((t) => t.status === 'in_progress'))
+function isLongTermTask(t) {
+  return Boolean(t?.isLongTerm)
+}
 
-/** 任务明细：按开始时间、结束时间升序，同名时段再按标题 */
-const tasksSortedForDetail = computed(() =>
-  [...tasks.value].sort((a, b) => {
+const tasksForTimeline = computed(() => tasks.value.filter((t) => !isLongTermTask(t)))
+
+const overdueTasks = computed(() =>
+  tasks.value.filter((t) => t.status === 'delayed' && !isLongTermTask(t)),
+)
+const overdueCount = computed(() => overdueTasks.value.length)
+const weeklyTasks = computed(() =>
+  tasks.value.filter((t) => t.status === 'in_progress' && !isLongTermTask(t)),
+)
+
+/** 任务明细列表：全部任务 | 仅长期任务 */
+const taskDetailFilter = ref('all')
+
+function setTaskDetailFilter(mode) {
+  taskDetailFilter.value = mode
+}
+
+/** 任务明细：先按筛选，再按开始时间、结束时间升序，同名时段再按标题 */
+const tasksSortedForDetail = computed(() => {
+  const base =
+    taskDetailFilter.value === 'long_term'
+      ? tasks.value.filter((t) => isLongTermTask(t))
+      : [...tasks.value]
+  return base.sort((a, b) => {
     const byStart = String(a.startDate).localeCompare(String(b.startDate))
     if (byStart !== 0) return byStart
     const byEnd = String(a.endDate).localeCompare(String(b.endDate))
     if (byEnd !== 0) return byEnd
     return String(a.title).localeCompare(String(b.title), 'zh-Hans-CN')
-  }),
-)
+  })
+})
 
 const completedCount = computed(() => tasks.value.filter((t) => t.status === 'completed').length)
 const progress = computed(() =>
@@ -618,6 +736,7 @@ const draftStatus = ref('pending')
 const draftStartDate = ref('')
 const draftEndDate = ref('')
 const draftTeacher = ref('')
+const draftLongTermStr = ref('0')
 
 const addModalOpen = ref(false)
 const newTitle = ref('')
@@ -625,6 +744,7 @@ const newStatus = ref('pending')
 const newStartDate = ref('')
 const newEndDate = ref('')
 const newTeacher = ref('')
+const newLongTermStr = ref('0')
 
 /** 甘特条右侧短日期，MM/dd~MM/dd */
 function formatTaskDateShort(startYmd, endYmd) {
@@ -641,6 +761,7 @@ function openEditTask(t) {
     t.teacherId != null && t.teacherId !== ''
       ? String(t.teacherId)
       : findTeacherIdByName(t.teacher)
+  draftLongTermStr.value = t.isLongTerm ? '1' : '0'
   editModalOpen.value = true
 }
 
@@ -670,6 +791,7 @@ async function confirmEditTask() {
       startDate: draftStartDate.value,
       endDate: draftEndDate.value,
       teacherId: draftTeacher.value || null,
+      isLongTerm: draftLongTermStr.value === '1',
     })
     if (updated) {
       const i = tasks.value.findIndex((x) => x.id === taskId)
@@ -681,6 +803,7 @@ async function confirmEditTask() {
         endDate: draftEndDate.value,
         teacher: findTeacherNameById(draftTeacher.value) || '—',
         teacherId: draftTeacher.value || null,
+        isLongTerm: draftLongTermStr.value === '1',
       })
     }
     showMessage('任务已更新', 'success')
@@ -699,6 +822,7 @@ function openAddTaskModal() {
   newStartDate.value = t0
   newEndDate.value = addDaysYmd(t0, 7)
   newTeacher.value = ''
+  newLongTermStr.value = '0'
   addModalOpen.value = true
 }
 
@@ -727,6 +851,7 @@ async function confirmAddTask() {
       startDate: newStartDate.value,
       endDate: newEndDate.value,
       teacherId: newTeacher.value || null,
+      isLongTerm: newLongTermStr.value === '1',
     })
     if (created) tasks.value.push(created)
     showMessage('任务已添加', 'success')

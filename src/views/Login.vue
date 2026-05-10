@@ -42,8 +42,10 @@
       <div
         class="rounded-2xl border border-white/10 bg-white/[0.97] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-md sm:p-10"
       >
-        <h1 class="font-login-display text-2xl text-[#002060]">登录</h1>
-        <p class="mt-1 text-body-sm text-on-surface-variant">请使用用户名与密码进入系统</p>
+        <div class="text-center">
+          <h1 class="font-login-display text-2xl text-[#002060]">登录</h1>
+          <p class="mt-1 text-body-sm text-on-surface-variant">请使用用户名与密码进入系统</p>
+        </div>
 
         <form class="mt-8 space-y-5" @submit.prevent="onSubmit">
           <div>

@@ -14,7 +14,7 @@
         ></div>
 
         <div
-          class="relative flex max-h-[min(92vh,880px)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-surface-variant bg-surface-container-lowest shadow-[0_4px_20px_rgba(29,29,75,0.08)]"
+          class="relative flex max-h-[min(94vh,940px)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-surface-variant bg-surface-container-lowest shadow-[0_4px_20px_rgba(29,29,75,0.08)]"
           @click.stop
         >
           <!-- Header -->
@@ -91,7 +91,7 @@
                 </button>
               </div>
 
-              <div class="flex min-h-0 flex-1 gap-6 h-[600px] max-h-[600px]">
+              <div class="flex min-h-0 flex-1 gap-6 min-h-[620px] h-[min(78vh,820px)] max-h-[min(88vh,940px)]">
                 <!-- Sidebar -->
                 <div
                   class="flex w-64 shrink-0 flex-col gap-2 rounded-lg border border-surface-variant/50 bg-surface-container-low p-2"
@@ -150,33 +150,58 @@
                     </button>
                   </div>
 
-                  <div class="min-w-0 overflow-x-auto pb-0.5">
-                    <div class="flex flex-col gap-3">
+                  <div class="min-w-0 overflow-x-auto overflow-y-visible pb-0.5">
+                    <div class="relative z-0 flex flex-col gap-4">
                     <div
                       v-for="(step, idx) in activeTemplate.steps"
                       :key="step._key"
-                      class="stitch-anim-fade-in group grid min-w-[34rem] grid-cols-[2.25rem_minmax(0,1fr)_9rem_11rem_auto] items-end gap-x-3 rounded-xl border border-surface-variant/50 bg-surface-container px-4 py-3"
+                      class="stitch-anim-fade-in group relative grid min-w-[52rem] grid-cols-[2.5rem_minmax(0,1fr)_11.5rem_8.5rem_12rem_auto] items-end gap-x-4 gap-y-1 rounded-xl border border-surface-variant/50 bg-surface-container px-5 py-4"
                     >
-                      <div class="flex flex-col items-center gap-1 self-end">
-                        <span class="h-4 shrink-0" aria-hidden="true"></span>
+                      <div class="flex flex-col items-center justify-center gap-0.5 self-end pb-px">
                         <span class="text-center text-body-sm font-bold text-outline">#{{ idx + 1 }}</span>
                       </div>
-                      <div class="flex min-w-0 flex-col gap-1">
+                      <div class="flex w-full min-w-0 flex-col gap-1">
                         <span class="text-center text-label-caps font-label-caps text-on-surface-variant">任务名称</span>
                         <input
                           v-model="step.title"
                           type="text"
-                          class="h-9 w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-sm font-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          class="h-9 w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 text-body-sm font-body-sm text-on-surface placeholder:text-outline-variant focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
-                      <div class="flex w-full min-w-0 flex-col gap-1">
+                      <div class="owner-dropdown-root relative flex w-full min-w-0 flex-col gap-1">
                         <span class="text-center text-label-caps font-label-caps text-on-surface-variant">选择负责人</span>
-                        <select
-                          :id="`step-owner-${step._key}`"
-                          v-model="step.ownerRole"
-                          class="template-owner-select h-9 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 text-body-sm font-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        <button
+                          type="button"
+                          class="owner-role-trigger flex h-9 w-full items-center justify-between rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 text-left text-body-sm font-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          :aria-expanded="ownerDropdownKey === step._key"
+                          :aria-controls="`owner-panel-${step._key}`"
+                          @click.stop="toggleOwnerDropdown(step._key, $event)"
                         >
-                          <option v-for="o in OWNER_OPTIONS" :key="o" :value="o">{{ o }}</option>
+                          <span class="min-w-0 flex-1 truncate">{{ ownerRolesSummary(step) }}</span>
+                          <svg
+                            class="owner-role-chevron h-[18px] w-[18px] shrink-0 text-on-surface-variant"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M6 9l6 6 6-6" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="flex w-full min-w-0 flex-col gap-1">
+                        <span class="text-center text-label-caps font-label-caps text-on-surface-variant">是否长期任务</span>
+                        <select
+                          :id="`step-longterm-${step._key}`"
+                          class="template-owner-select h-9 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 text-body-sm font-body-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          :value="step.isLongTerm ? '1' : '0'"
+                          @change="step.isLongTerm = $event.target.value === '1'"
+                        >
+                          <option value="0">否</option>
+                          <option value="1">是</option>
                         </select>
                       </div>
                       <div class="flex w-full flex-col gap-1">
@@ -216,10 +241,35 @@
       </div>
     </Transition>
   </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="ownerPanelStep && ownerPanelStyle"
+      :id="`owner-panel-${ownerPanelStep._key}`"
+      class="owner-dropdown-panel fixed z-[250] overflow-y-auto rounded-lg border border-outline-variant bg-surface-container-lowest py-1 shadow-modal"
+      :style="ownerPanelStyle"
+      role="listbox"
+      @click.stop
+    >
+      <label
+        v-for="o in OWNER_OPTIONS"
+        :key="o"
+        class="flex cursor-pointer items-center gap-2 px-3 py-2 text-body-sm text-on-surface hover:bg-surface-container-low"
+      >
+        <input
+          type="checkbox"
+          class="h-4 w-4 rounded border-outline-variant text-secondary focus:ring-secondary"
+          :checked="ownerPanelStep.ownerRoles.includes(o)"
+          @change="onOwnerRoleCheckbox(ownerPanelStep, o, $event)"
+        />
+        <span>{{ OWNER_LABELS[o] || o }}</span>
+      </label>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { showMessage } from '@/utils/request'
 import {
   fetchStudentTaskTemplatesFromServer,
@@ -232,21 +282,65 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:visible', 'save'])
 
-/** 任务步骤负责人 */
-const OWNER_OPTIONS = ['PM', 'MENTOR', '中台']
+/** 任务步骤负责人（可多选） */
+const OWNER_OPTIONS = ['PM', 'MENTOR', '中台', '学生自己']
+const OWNER_LABELS = {
+  PM: 'PM',
+  MENTOR: 'MENTOR',
+  中台: '中台',
+  学生自己: '学生自己',
+}
+
+const ownerDropdownKey = ref(null)
 
 function stepKey() {
   return `s_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
+function normalizeOwnerRolesList(arr) {
+  const set = new Set((arr || []).map((x) => String(x).trim()).filter(Boolean))
+  return OWNER_OPTIONS.filter((o) => set.has(o))
+}
+
+function coerceStepOwnerRolesFromServer(s) {
+  if (Array.isArray(s.ownerRoles) && s.ownerRoles.length) {
+    return normalizeOwnerRolesList(s.ownerRoles)
+  }
+  const raw = String(s.ownerRole ?? 'PM')
+  const parts = raw
+    .split(/[,|]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+  const out = normalizeOwnerRolesList(parts)
+  return out.length ? out : ['PM']
+}
+
+function ownerRolesSummary(step) {
+  const r = step.ownerRoles?.length ? step.ownerRoles : ['PM']
+  return r.map((x) => OWNER_LABELS[x] || x).join('、')
+}
+
+function onOwnerRoleCheckbox(step, role, ev) {
+  const checked = ev.target.checked
+  let next = (step.ownerRoles || []).filter((x) => x !== role)
+  if (checked) next = [...next, role]
+  next = normalizeOwnerRolesList(next)
+  if (!next.length) {
+    ev.target.checked = true
+    showMessage('至少选择一位负责人', 'warning')
+    return
+  }
+  step.ownerRoles = next
+}
+
 function defaultSteps() {
   return [
-    { _key: stepKey(), title: '择校评估', ownerRole: 'PM', startDays: 0, endDays: 4 },
-    { _key: stepKey(), title: '推荐信', ownerRole: 'PM', startDays: 7, endDays: 28 },
-    { _key: stepKey(), title: '文书初稿', ownerRole: 'PM', startDays: 14, endDays: 42 },
-    { _key: stepKey(), title: '网申提交', ownerRole: 'PM', startDays: 50, endDays: 60 },
-    { _key: stepKey(), title: '面试准备', ownerRole: 'PM', startDays: 55, endDays: 70 },
-    { _key: stepKey(), title: '结果跟进', ownerRole: 'PM', startDays: 75, endDays: 90 },
+    { _key: stepKey(), title: '择校评估', ownerRoles: ['PM'], startDays: 0, endDays: 4, isLongTerm: false },
+    { _key: stepKey(), title: '推荐信', ownerRoles: ['PM'], startDays: 7, endDays: 28, isLongTerm: false },
+    { _key: stepKey(), title: '文书初稿', ownerRoles: ['PM'], startDays: 14, endDays: 42, isLongTerm: false },
+    { _key: stepKey(), title: '网申提交', ownerRoles: ['PM'], startDays: 50, endDays: 60, isLongTerm: false },
+    { _key: stepKey(), title: '面试准备', ownerRoles: ['PM'], startDays: 55, endDays: 70, isLongTerm: false },
+    { _key: stepKey(), title: '结果跟进', ownerRoles: ['PM'], startDays: 75, endDays: 90, isLongTerm: false },
   ]
 }
 
@@ -270,6 +364,111 @@ const activeTemplate = computed(() => {
   return t || templates.value[0]
 })
 
+const ownerPanelStep = computed(() => {
+  const k = ownerDropdownKey.value
+  if (!k) return null
+  const steps = activeTemplate.value?.steps
+  return steps?.find((s) => s._key === k) ?? null
+})
+
+const ownerPanelStyle = ref(null)
+const ownerTriggerEl = ref(null)
+
+let ownerPanelListenersAttached = false
+function onOwnerPanelScrollResize() {
+  updateOwnerPanelPosition()
+}
+
+function setupOwnerPanelListeners() {
+  if (ownerPanelListenersAttached) return
+  ownerPanelListenersAttached = true
+  window.addEventListener('scroll', onOwnerPanelScrollResize, true)
+  window.addEventListener('resize', onOwnerPanelScrollResize)
+}
+
+function teardownOwnerPanelListeners() {
+  if (!ownerPanelListenersAttached) return
+  ownerPanelListenersAttached = false
+  window.removeEventListener('scroll', onOwnerPanelScrollResize, true)
+  window.removeEventListener('resize', onOwnerPanelScrollResize)
+}
+
+function updateOwnerPanelPosition() {
+  const btn = ownerTriggerEl.value
+  if (!btn || !ownerDropdownKey.value) return
+  const r = btn.getBoundingClientRect()
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const margin = 4
+  const edge = 8
+  const cap = 224
+
+  let width = Math.max(r.width, 180)
+  let left = r.left
+  if (left + width > vw - edge) left = Math.max(edge, vw - width - edge)
+  if (left < edge) left = edge
+
+  let top = r.bottom + margin
+  let maxHeight = Math.min(cap, vh - top - edge)
+  if (maxHeight < 100) {
+    const above = Math.min(cap, r.top - margin - edge)
+    if (above > maxHeight) {
+      maxHeight = Math.max(100, above)
+      top = r.top - margin - maxHeight
+    } else {
+      maxHeight = Math.max(72, maxHeight)
+    }
+  }
+  top = Math.max(edge, Math.min(top, vh - edge - maxHeight))
+
+  ownerPanelStyle.value = {
+    top: `${top}px`,
+    left: `${left}px`,
+    width: `${width}px`,
+    maxHeight: `${maxHeight}px`,
+  }
+}
+
+function closeOwnerDropdown() {
+  if (!ownerDropdownKey.value && !ownerPanelStyle.value && !ownerTriggerEl.value) return
+  ownerDropdownKey.value = null
+  ownerPanelStyle.value = null
+  ownerTriggerEl.value = null
+  teardownOwnerPanelListeners()
+}
+
+function toggleOwnerDropdown(key, evt) {
+  if (ownerDropdownKey.value === key) {
+    closeOwnerDropdown()
+    return
+  }
+  teardownOwnerPanelListeners()
+  ownerDropdownKey.value = key
+  ownerTriggerEl.value = evt?.currentTarget ?? null
+  ownerPanelStyle.value = null
+  nextTick(() => {
+    updateOwnerPanelPosition()
+    setupOwnerPanelListeners()
+  })
+}
+
+function onDocumentClickOwnerClose(e) {
+  if (e.target.closest?.('.owner-dropdown-root') || e.target.closest?.('.owner-dropdown-panel')) {
+    return
+  }
+  closeOwnerDropdown()
+}
+
+onMounted(() => {
+  // 捕获阶段：弹窗卡片上有 @click.stop，冒泡到不了 document，这里仍能收到「弹窗内空白处」点击以关闭负责人菜单
+  document.addEventListener('click', onDocumentClickOwnerClose, true)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocumentClickOwnerClose, true)
+  closeOwnerDropdown()
+})
+
 function applyPayload(data) {
   if (!data?.templates?.length) return
   if (data.rules) {
@@ -282,8 +481,12 @@ function applyPayload(data) {
     id: String(t.id),
     name: String(t.name ?? t.id),
     steps: (t.steps || []).map((s) => ({
-      ...s,
       _key: s._key || stepKey(),
+      title: String(s.title ?? ''),
+      ownerRoles: coerceStepOwnerRolesFromServer(s),
+      startDays: Number(s.startDays ?? 0),
+      endDays: Number(s.endDays ?? 0),
+      isLongTerm: Boolean(s.isLongTerm ?? s.is_long_term),
     })),
   }))
 }
@@ -296,7 +499,10 @@ async function hydrate() {
 watch(
   () => props.visible,
   async (v) => {
-    if (!v) return
+    if (!v) {
+      closeOwnerDropdown()
+      return
+    }
     await hydrate()
     if (!templates.value.find((t) => t.id === activeTemplateId.value)) {
       activeTemplateId.value = templates.value[0]?.id || ''
@@ -318,9 +524,10 @@ function addTemplate() {
       {
         _key: stepKey(),
         title: '新步骤',
-        ownerRole: 'PM',
+        ownerRoles: ['PM'],
         startDays: 0,
         endDays: 7,
+        isLongTerm: false,
       },
     ],
   })
@@ -359,9 +566,10 @@ function addStep() {
   t.steps.push({
     _key: stepKey(),
     title: '新任务',
-    ownerRole: 'PM',
+    ownerRoles: ['PM'],
     startDays,
     endDays,
+    isLongTerm: false,
   })
 }
 
@@ -376,9 +584,13 @@ async function onSave() {
       name: t.name,
       steps: t.steps.map((s) => ({
         title: s.title,
-        ownerRole: s.ownerRole,
+        ownerRoles: (() => {
+          const x = normalizeOwnerRolesList(s.ownerRoles)
+          return x.length ? x : ['PM']
+        })(),
         startDays: s.startDays,
         endDays: s.endDays,
+        isLongTerm: Boolean(s.isLongTerm),
       })),
     })),
   }
@@ -444,7 +656,7 @@ async function onSave() {
   animation: stitch-fade-in 0.28s ease-out both;
 }
 
-/* 原生 select 与自定义箭头并存时易叠双箭头，统一去掉系统样式后只保留一层 */
+/* 原生 select：去掉系统箭头，只保留自定义 SVG */
 .template-owner-select {
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -454,6 +666,11 @@ async function onSave() {
   background-repeat: no-repeat;
   background-position: right 0.4rem center;
   background-size: 1.15rem;
+}
+
+/* 负责人多选：button 触发器（箭头为内联 SVG，避免与原生样式叠出双箭头） */
+.owner-role-trigger {
+  cursor: pointer;
 }
 
 .step-day-input {

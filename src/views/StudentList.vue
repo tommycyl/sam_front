@@ -48,7 +48,7 @@
             class="w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 py-2 text-body-base text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             :style="selectArrow"
           >
-            <option value="">全部负责人</option>
+            <option value="">全部PM</option>
             <option v-for="o in ownerOptions" :key="o" :value="o">{{ o }}</option>
           </select>
           <select
@@ -109,7 +109,16 @@
               </p>
             </div>
 
-            <div class="max-h-[min(360px,50vh)] overflow-y-auto px-6 py-4">
+            <div
+              class="px-6 py-4"
+              :class="
+                taskOptionsLoading || !taskOptions.length
+                  ? ''
+                  : taskOptions.length > 10
+                    ? 'max-h-[min(27.5rem,50vh)] overflow-y-auto overscroll-contain'
+                    : ''
+              "
+            >
               <div v-if="taskOptionsLoading" class="flex flex-col items-center justify-center gap-3 py-10 text-body-sm text-on-surface-variant">
                 <div class="h-8 w-8 animate-spin rounded-full border-2 border-secondary border-t-transparent"></div>
                 正在加载任务列表…
@@ -127,7 +136,7 @@
                     :id="'task-opt-' + opt.id"
                     type="checkbox"
                     class="h-4 w-4 rounded border-outline-variant text-secondary focus:ring-secondary"
-                    :checked="tempSelectedTaskIds.has(opt.id)"
+                    :checked="tempSelectedTaskIds.includes(opt.id)"
                     @change="toggleTempTask(opt.id, $event.target.checked)"
                   />
                   <label
@@ -184,16 +193,22 @@
                 学生姓名
               </th>
               <th class="px-4 py-3 text-label-caps font-label-caps uppercase tracking-wider text-on-surface-variant">
-                负责人
+                PM
               </th>
               <th class="px-4 py-3 text-label-caps font-label-caps uppercase tracking-wider text-on-surface-variant">
                 Mentor
+              </th>
+              <th class="px-4 py-3 text-label-caps font-label-caps uppercase tracking-wider text-on-surface-variant">
+                中台
               </th>
               <th class="px-4 py-3 text-label-caps font-label-caps uppercase tracking-wider text-on-surface-variant">
                 当前进度
               </th>
               <th class="px-4 py-3 pl-12 text-label-caps font-label-caps uppercase tracking-wider text-on-surface-variant">
                 任务状态
+              </th>
+              <th class="px-4 py-3 text-right text-label-caps font-label-caps uppercase tracking-wider text-on-surface-variant">
+                操作
               </th>
             </tr>
           </thead>
@@ -219,6 +234,7 @@
               </td>
               <td class="px-4 py-4 text-on-surface-variant">{{ row.owner }}</td>
               <td class="px-4 py-4 text-on-surface-variant">{{ row.mentor }}</td>
+              <td class="px-4 py-4 text-on-surface-variant">{{ row.midPlatform ?? '—' }}</td>
               <td class="px-4 py-4">
                 <div class="flex items-center gap-2">
                   <div class="h-1.5 w-full max-w-[100px] rounded-full bg-surface-variant">
@@ -239,9 +255,31 @@
                   {{ statusLabel(row.status) }}
                 </span>
               </td>
+              <td class="px-4 py-4 text-right" @click.stop>
+                <div class="inline-flex flex-wrap items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-body-sm font-medium text-primary transition-colors hover:bg-surface-container-low"
+                    title="编辑"
+                    @click="openEdit(row, $event)"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">edit</span>
+                    编辑
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-body-sm font-medium text-error transition-colors hover:bg-error/10"
+                    title="删除"
+                    @click="confirmDelete(row, $event)"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">delete</span>
+                    删除
+                  </button>
+                </div>
+              </td>
             </tr>
             <tr v-if="!pagedRows.length">
-              <td colspan="5" class="px-4 py-12 text-center text-body-sm text-on-surface-variant">
+              <td colspan="7" class="px-4 py-12 text-center text-body-sm text-on-surface-variant">
                 暂无数据
               </td>
             </tr>
@@ -291,7 +329,11 @@
       </div>
     </div>
 
-    <AddStudentModal v-model:visible="addVisible" @submit="onCreate" />
+    <AddStudentModal
+      v-model:visible="studentModalVisible"
+      :initial="studentModalInitial"
+      @submit="onStudentModalSubmit"
+    />
     <TemplateSettingsModal v-model:visible="templateSettingsVisible" />
   </div>
 </template>
@@ -303,8 +345,11 @@ import AddStudentModal from '@/components/AddStudentModal.vue'
 import TemplateSettingsModal from '@/components/TemplateSettingsModal.vue'
 import {
   createStudent,
+  deleteStudent,
+  fetchStudentDetail,
   fetchStudentList,
   fetchStudentTaskFilterOptions,
+  updateStudent,
 } from '@/api/student'
 import { showMessage } from '@/utils/request'
 
@@ -498,10 +543,51 @@ function goDetail(id) {
   router.push(`/students/${id}`)
 }
 
-const addVisible = ref(false)
+const studentModalVisible = ref(false)
+const studentModalInitial = ref(null)
 const templateSettingsVisible = ref(false)
 function openAdd() {
-  addVisible.value = true
+  studentModalInitial.value = null
+  studentModalVisible.value = true
+}
+
+async function openEdit(row, e) {
+  e?.stopPropagation?.()
+  try {
+    const d = await fetchStudentDetail(row.id)
+    studentModalInitial.value = {
+      id: d.id,
+      name: d.name || '',
+      startDate: d.startDate || '',
+      templateId: d.templateId || '',
+      owner: d.owner || d.pm || '',
+      mentor: d.mentor || '',
+      midPlatform: d.midPlatform || '',
+      pmId: d.pmId ?? d.ownerId,
+      mentorId: d.mentorId,
+      midPlatformId: d.midPlatformId,
+    }
+    studentModalVisible.value = true
+  } catch {
+    showMessage('加载学生信息失败', 'error')
+  }
+}
+
+async function confirmDelete(row, e) {
+  e?.stopPropagation?.()
+  const ok = window.confirm(`确定删除学生「${row.name}」吗？其任务数据将一并删除，且不可恢复。`)
+  if (!ok) return
+  try {
+    await deleteStudent(row.id)
+    showMessage('已删除学生', 'success')
+    if (studentModalInitial.value?.id === row.id) {
+      studentModalInitial.value = null
+      studentModalVisible.value = false
+    }
+    await loadStudents()
+  } catch {
+    /* request 拦截器已弹错误 */
+  }
 }
 
 function onOpenTemplateSettings() {
@@ -514,18 +600,25 @@ function normalizeYmd(value) {
   return s
 }
 
-async function onCreate(payload) {
+async function onStudentModalSubmit(payload) {
+  const body = {
+    name: payload.name,
+    startDate: normalizeYmd(payload.startDate),
+    templateId: payload.templateId,
+    pmId: payload.pmId,
+    mentorId: payload.mentorId,
+    midPlatformId: payload.midPlatformId,
+  }
   try {
-    await createStudent({
-      name: payload.name,
-      startDate: normalizeYmd(payload.startDate),
-      templateId: payload.templateId,
-      pmId: payload.pmId,
-      mentorId: payload.mentorId,
-      midPlatformId: payload.midPlatformId,
-    })
-    addVisible.value = false
-    showMessage('已添加学生', 'success')
+    if (payload.id != null && payload.id !== '') {
+      await updateStudent(payload.id, body)
+      showMessage('已保存修改，任务与负责人已同步', 'success')
+    } else {
+      await createStudent(body)
+      showMessage('已添加学生', 'success')
+    }
+    studentModalVisible.value = false
+    studentModalInitial.value = null
     await loadStudents()
   } catch {
     /* request 拦截器已弹错误 */

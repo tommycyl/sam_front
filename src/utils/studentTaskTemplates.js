@@ -39,12 +39,25 @@ function normalizePayload(payload) {
       id: String(t.id ?? t.code ?? ''),
       name: String(t.name ?? t.id ?? '未命名模板'),
       steps: Array.isArray(t.steps)
-        ? t.steps.map((s) => ({
-            title: String(s.title ?? ''),
-            ownerRole: String(s.ownerRole ?? 'PM'),
-            startDays: Number(s.startDays ?? 0),
-            endDays: Number(s.endDays ?? 0),
-          }))
+        ? t.steps.map((s) => {
+            let ownerRoles = []
+            if (Array.isArray(s.ownerRoles) && s.ownerRoles.length) {
+              ownerRoles = s.ownerRoles.map((x) => String(x).trim()).filter(Boolean)
+            } else {
+              const raw = String(s.ownerRole ?? 'PM')
+              ownerRoles = raw
+                .split(/[,|]/)
+                .map((x) => x.trim())
+                .filter(Boolean)
+            }
+            return {
+              title: String(s.title ?? ''),
+              ownerRoles,
+              startDays: Number(s.startDays ?? 0),
+              endDays: Number(s.endDays ?? 0),
+              isLongTerm: Boolean(s.isLongTerm ?? s.is_long_term),
+            }
+          })
         : [],
     })),
   }

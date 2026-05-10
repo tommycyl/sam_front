@@ -263,7 +263,11 @@ const errors = reactive({
   midPlatformId: false,
 })
 
-const START_DATE_RE = /^\d{4}\/\d{2}\/\d{2}$/
+function toSlashDisplayDate(value) {
+  const s = String(value || '').trim()
+  if (!s) return ''
+  return s.replace(/-/g, '/')
+}
 
 function clearFieldErrors() {
   errors.name = false
@@ -275,8 +279,8 @@ function clearFieldErrors() {
 }
 
 function isValidStartDate(s) {
-  const t = String(s || '').trim()
-  if (!START_DATE_RE.test(t)) return false
+  const t = String(s || '').trim().replace(/-/g, '/')
+  if (!/^\d{4}\/\d{2}\/\d{2}$/.test(t)) return false
   const [y, mo, d] = t.split('/').map(Number)
   const dt = new Date(y, mo - 1, d)
   return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d
@@ -390,7 +394,7 @@ watch(
     refreshTemplateOptions()
     await Promise.all([loadRoleOptions(), refreshTemplateOptionsFromServer()])
     form.name = props.initial?.name || ''
-    form.startDate = props.initial?.startDate || todayStr
+    form.startDate = toSlashDisplayDate(props.initial?.startDate) || todayStr
     const initTid = props.initial?.templateId
     const opts = templateOptions.value
     form.templateId =
@@ -432,6 +436,7 @@ function submit() {
   const mid = midPlatformOptions.value.find((o) => o.id === form.midPlatformId)
   const tpl = templateOptions.value.find((o) => o.id === form.templateId)
   emit('submit', {
+    id: props.initial?.id ?? null,
     name: form.name.trim(),
     startDate: form.startDate,
     templateId: form.templateId,

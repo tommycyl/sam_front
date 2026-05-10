@@ -2,7 +2,11 @@
   <!-- 任务时间表：周为连续条带；月为一页一月 + 日内分列，横滑无吸附，同一时段可纵向堆叠多条 -->
   <section class="flex flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-variant px-4 py-3">
-      <span class="min-w-0 flex-1 text-xs text-on-surface-variant">
+      <span
+        v-if="scheduleHeadingTrimmed"
+        class="min-w-0 flex-1 text-base font-black leading-snug text-primary"
+      >{{ scheduleHeadingTrimmed }}</span>
+      <span v-else class="min-w-0 flex-1 text-xs text-on-surface-variant">
         鼠标拖拽或滚轮可横向移动；周为连续多周一条泳道；月视图一页一个月，横向自由滚动换月（无吸附）
       </span>
       <div class="flex shrink-0 overflow-hidden rounded border border-outline-variant bg-surface-container-lowest">
@@ -210,7 +214,11 @@ const props = defineProps({
   tasks: { type: Array, required: true },
   /** `teacher`：第三行显示任务老师；`student`：第三行显示学生 */
   subtitleKind: { type: String, default: 'teacher', validator: (v) => v === 'teacher' || v === 'student' },
+  /** 显示在「时间轴」列下方，例如「张三 时间表」；空则不展示 */
+  scheduleHeading: { type: String, default: '' },
 })
+
+const scheduleHeadingTrimmed = computed(() => String(props.scheduleHeading || '').trim())
 
 const range = defineModel('range', { type: String, default: '周' })
 
