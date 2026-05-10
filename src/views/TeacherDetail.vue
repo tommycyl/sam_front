@@ -160,7 +160,7 @@
         </div>
         <div
           v-for="t in filteredTasksForDetail"
-          :key="t.title + (t.student || '') + t.startDate + 'row'"
+          :key="t.id || (t.title + (t.student || '') + t.startDate + 'row')"
           class="flex flex-wrap items-start gap-x-4 gap-y-2 p-4 md:grid md:grid-cols-[2rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,auto)] md:items-center md:gap-x-4 md:gap-y-0"
         >
           <div class="flex w-8 shrink-0 justify-center pt-0.5 md:pt-0">
@@ -191,9 +191,14 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import TaskTimelinePanel from '@/components/TaskTimelinePanel.vue'
+import {
+  fetchTeacherDetail,
+  fetchTeacherStudents,
+  fetchTeacherTasks,
+} from '@/api/teacher'
 
 const router = useRouter()
 const props = defineProps({ id: { type: String, required: true } })
@@ -202,34 +207,101 @@ const range = ref('周')
 
 const teacher = ref({
   id: props.id,
-  name: 'Sarah Jenkins 博士',
-  title: '高级教授',
-  avatar: 'https://i.pravatar.cc/200?img=47',
+  name: '',
+  title: '',
+  avatar: '',
 })
 
-const summaryCards = [
+const summaryStats = ref({
+  studentCount: 0,
+  inProgressCount: 0,
+})
+
+const summaryCards = computed(() => [
   {
     label: '分配学生',
-    value: '42',
+    value: String(summaryStats.value.studentCount ?? 0),
     icon: 'group',
     iconBg: 'bg-primary-fixed/30 group-hover:bg-primary-fixed',
     iconText: 'text-primary-container',
   },
   {
     label: '进行中任务',
-    value: '8',
+    value: String(summaryStats.value.inProgressCount ?? 0),
     icon: 'assignment',
     iconBg: 'bg-tertiary-fixed/30 group-hover:bg-tertiary-fixed',
     iconText: 'text-tertiary-container',
   },
-]
-
-const students = ref([
-  { id: 'STU-24-001', name: '陈明 (Chen Ming)', startTime: '2026/03/01', status: 'normal', taskProgress: 72 },
-  { id: 'STU-24-045', name: '李华 (Li Hua)', startTime: '2026/03/15', status: 'normal', taskProgress: 38 },
-  { id: 'STU-23-112', name: '王晓 (Wang Xiao)', startTime: '2025/09/01', status: 'attention', taskProgress: 22 },
-  { id: 'STU-24-089', name: '张伟 (Zhang Wei)', startTime: '2026/04/02', status: 'normal', taskProgress: 100 },
 ])
+
+const ROLE_TITLE = {
+  PM: 'PM',
+  MENTOR: 'MENTOR',
+  PM_MENTOR: 'PM & MENTOR',
+  MID_PLATFORM: '中台',
+}
+
+function avatarFallback(name) {
+  const trimmed = String(name || '').trim()
+  if (!trimmed) return ''
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(trimmed)}`
+}
+
+const students = ref([])
+const tasks = ref([])
+
+async function loadTeacher() {
+  try {
+    const data = await fetchTeacherDetail(props.id)
+    if (data) {
+      teacher.value = {
+        id: data.id,
+        name: data.name || '',
+        title: data.title || ROLE_TITLE[data.role] || '老师',
+        avatar: data.avatar || avatarFallback(data.name),
+      }
+      summaryStats.value = {
+        studentCount: data.studentCount ?? 0,
+        inProgressCount: data.inProgressCount ?? 0,
+      }
+    }
+  } catch {
+    /* request 拦截器已弹错误 */
+  }
+}
+
+async function loadStudents() {
+  try {
+    const data = await fetchTeacherStudents(props.id)
+    const list = Array.isArray(data?.list) ? data.list : Array.isArray(data) ? data : []
+    students.value = list.map((s) => ({
+      id: s.id,
+      name: s.name,
+      startTime: (s.startTime || '').replace(/-/g, '/'),
+      status: s.status || 'normal',
+      taskProgress: Number(s.taskProgress || 0),
+    }))
+  } catch {
+    students.value = []
+  }
+}
+
+async function loadTasks() {
+  try {
+    const data = await fetchTeacherTasks(props.id)
+    const list = Array.isArray(data?.list) ? data.list : Array.isArray(data) ? data : []
+    tasks.value = list
+  } catch {
+    tasks.value = []
+  }
+}
+
+async function loadAll() {
+  await Promise.all([loadTeacher(), loadStudents(), loadTasks()])
+}
+
+onMounted(loadAll)
+watch(() => props.id, loadAll)
 
 function studentStatusLabel(s) {
   return { normal: '正常', attention: '需关注' }[s] || s
@@ -248,59 +320,6 @@ function studentProgressBarClass(row) {
   if (p < 35) return 'bg-[#eab308]'
   return 'bg-secondary'
 }
-
-const tasks = ref([
-  {
-    title: '初步评估',
-    student: '陈明 (Chen Ming)',
-    dotColor: 'bg-secondary',
-    startDate: '2026-04-06',
-    endDate: '2026-04-10',
-    status: 'in_progress',
-    barClass: 'border-secondary bg-secondary/10 text-secondary',
-    dateShort: '4/6~4/10',
-  },
-  {
-    title: '推荐信',
-    student: '李华 (Li Hua)',
-    dotColor: 'bg-primary',
-    startDate: '2026-04-01',
-    endDate: '2026-04-05',
-    status: 'completed',
-    barClass: 'border-primary bg-primary/10 text-primary',
-    dateShort: '4/1~4/5',
-  },
-  {
-    title: '文书初稿',
-    student: '王晓 (Wang Xiao)',
-    dotColor: 'bg-error',
-    startDate: '2026-03-25',
-    endDate: '2026-03-30',
-    status: 'delayed',
-    barClass: 'border-error bg-error/10 text-error',
-    dateShort: '3/25~3/30',
-  },
-  {
-    title: '材料补充说明',
-    student: '陈明 (Chen Ming)',
-    dotColor: 'bg-[#7e57c2]',
-    startDate: '2026-04-25',
-    endDate: '2026-05-10',
-    status: 'in_progress',
-    barClass: 'border-[#7e57c2] bg-[#7e57c2]/15 text-[#5e35b1]',
-    dateShort: '4/25~5/10',
-  },
-  {
-    title: '网申提交',
-    student: '张伟 (Zhang Wei)',
-    dotColor: 'bg-[#2196F3]',
-    startDate: '2026-05-26',
-    endDate: '2026-06-05',
-    status: 'pending',
-    barClass: 'border-[#2196F3] bg-[#2196F3]/10 text-[#2196F3]',
-    dateShort: '5/26~6/5',
-  },
-])
 
 /** 任务明细列表：按学生姓名模糊筛选（中英文不区分大小写） */
 const taskDetailSearch = ref('')

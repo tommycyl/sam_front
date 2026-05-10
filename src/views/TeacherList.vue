@@ -183,10 +183,16 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AddTeacherModal from '@/components/AddTeacherModal.vue'
 import { showMessage } from '@/utils/request'
+import {
+  createTeacher,
+  deleteTeacher,
+  fetchTeacherList,
+  updateTeacher,
+} from '@/api/teacher'
 
 const router = useRouter()
 
@@ -199,44 +205,19 @@ const tabs = [
 ]
 const activeTab = ref('all')
 
-const rows = ref([
-  {
-    id: 'TCH-2023-041',
-    name: 'Dr. Sarah Jenkins',
-    code: 'TCH-2023-041',
-    studentCount: 42,
-    email: 's.jenkins@indigo.edu',
-    role: 'MENTOR',
-    avatar: 'https://i.pravatar.cc/80?img=47',
-  },
-  {
-    id: 'TCH-2018-012',
-    name: 'Prof. Michael Chang',
-    code: 'TCH-2018-012',
-    studentCount: 128,
-    email: 'm.chang@indigo.edu',
-    role: 'MENTOR',
-    avatar: 'https://i.pravatar.cc/80?img=11',
-  },
-  {
-    id: 'TCH-2021-088',
-    name: 'Elena Rodriguez',
-    code: 'TCH-2021-088',
-    studentCount: 0,
-    email: 'e.rodriguez@indigo.edu',
-    role: 'PM',
-    avatar: '',
-  },
-  {
-    id: 'TCH-2022-104',
-    name: 'Dr. Amara Singh',
-    code: 'TCH-2022-104',
-    studentCount: 65,
-    email: 'a.singh@indigo.edu',
-    role: 'MENTOR',
-    avatar: 'https://i.pravatar.cc/80?img=32',
-  },
-])
+const rows = ref([])
+
+async function loadList() {
+  try {
+    const data = await fetchTeacherList()
+    const list = Array.isArray(data?.list) ? data.list : Array.isArray(data) ? data : []
+    rows.value = list
+  } catch {
+    rows.value = []
+  }
+}
+
+onMounted(loadList)
 
 const filtered = computed(() => {
   if (activeTab.value === 'all') return rows.value
@@ -319,27 +300,30 @@ function onEdit(row) {
   editing.value = { ...row }
   addVisible.value = true
 }
-function onDelete(row) {
+async function onDelete(row) {
   if (!confirm(`确定删除 ${row.name}？`)) return
-  rows.value = rows.value.filter((r) => r.id !== row.id)
-  showMessage('已删除', 'success')
-}
-function onSubmit(payload) {
-  if (editing.value) {
-    const i = rows.value.findIndex((r) => r.id === editing.value.id)
-    if (i >= 0) rows.value[i] = { ...rows.value[i], ...payload }
-    showMessage('已保存', 'success')
-  } else {
-    const id = `TCH-${new Date().getFullYear()}-${String(rows.value.length + 1).padStart(3, '0')}`
-    rows.value.unshift({
-      id,
-      code: id,
-      studentCount: 0,
-      avatar: '',
-      ...payload,
-    })
-    showMessage('已添加', 'success')
+  try {
+    await deleteTeacher(row.id)
+    showMessage('已删除', 'success')
+    await loadList()
+  } catch {
+    /* 拦截器已弹错误 */
   }
-  addVisible.value = false
+}
+
+async function onSubmit(payload) {
+  try {
+    if (editing.value) {
+      await updateTeacher(editing.value.id, payload)
+      showMessage('已保存', 'success')
+    } else {
+      await createTeacher(payload)
+      showMessage('已添加', 'success')
+    }
+    addVisible.value = false
+    await loadList()
+  } catch {
+    /* 拦截器已弹错误 */
+  }
 }
 </script>

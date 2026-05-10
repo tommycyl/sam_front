@@ -145,6 +145,39 @@
                 </select>
                 <p v-if="errors.pmId" class="text-body-sm text-error">请选择 PM</p>
               </div>
+
+              <div class="flex flex-col gap-2 md:col-span-2">
+                <label
+                  class="text-label-caps font-label-caps"
+                  :class="errors.midPlatformId ? 'text-error' : 'text-on-surface-variant'"
+                >
+                  中台 *
+                </label>
+                <select
+                  v-model="form.midPlatformId"
+                  class="h-12 w-full appearance-none rounded-lg bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:outline-none focus:ring-2 disabled:opacity-60"
+                  :class="
+                    errors.midPlatformId
+                      ? 'border-2 border-error focus:ring-error/35'
+                      : 'border border-outline-variant focus:border-secondary focus:ring-secondary/30'
+                  "
+                  :disabled="optionsLoading"
+                  :style="selectArrow"
+                  @change="errors.midPlatformId = false"
+                >
+                  <option value="" disabled>
+                    {{
+                      optionsLoading
+                        ? '加载中…'
+                        : midPlatformOptions.length
+                          ? '请选择中台老师'
+                          : '暂无中台老师，请先在教师管理中新增'
+                    }}
+                  </option>
+                  <option v-for="o in midPlatformOptions" :key="o.id" :value="o.id">{{ o.name }}</option>
+                </select>
+                <p v-if="errors.midPlatformId" class="text-body-sm text-error">请选择中台老师</p>
+              </div>
             </div>
           </form>
 
@@ -172,8 +205,15 @@
 
 <script setup>
 import { reactive, ref, watch } from 'vue'
-import { fetchStudentFormMentorOptions, fetchStudentFormPmOptions } from '@/api/student'
-import { getStudentTemplateSelectOptions } from '@/utils/studentTaskTemplates'
+import {
+  fetchStudentFormMentorOptions,
+  fetchStudentFormMidPlatformOptions,
+  fetchStudentFormPmOptions,
+} from '@/api/student'
+import {
+  fetchStudentTemplateSelectOptions,
+  getStudentTemplateSelectOptions,
+} from '@/utils/studentTaskTemplates'
 import { showMessage } from '@/utils/request'
 
 const props = defineProps({
@@ -197,6 +237,7 @@ const FALLBACK_MENTOR_OPTIONS = [
   { id: 'm-ml', name: 'Dr. Miller' },
   { id: 'm-ls', name: 'Prof. Lee' },
 ]
+const FALLBACK_MIDPLATFORM_OPTIONS = []
 
 const form = reactive({
   name: '',
@@ -204,10 +245,12 @@ const form = reactive({
   templateId: '',
   pmId: '',
   mentorId: '',
+  midPlatformId: '',
 })
 
 const pmOptions = ref([])
 const mentorOptions = ref([])
+const midPlatformOptions = ref([])
 const templateOptions = ref([])
 const optionsLoading = ref(false)
 
@@ -217,6 +260,7 @@ const errors = reactive({
   templateId: false,
   mentorId: false,
   pmId: false,
+  midPlatformId: false,
 })
 
 const START_DATE_RE = /^\d{4}\/\d{2}\/\d{2}$/
@@ -227,6 +271,7 @@ function clearFieldErrors() {
   errors.templateId = false
   errors.mentorId = false
   errors.pmId = false
+  errors.midPlatformId = false
 }
 
 function isValidStartDate(s) {
@@ -259,6 +304,10 @@ function validateForm() {
     }
     if (!form.pmId) {
       errors.pmId = true
+      valid = false
+    }
+    if (!form.midPlatformId) {
+      errors.midPlatformId = true
       valid = false
     }
   }
@@ -297,25 +346,39 @@ function refreshTemplateOptions() {
   templateOptions.value = getStudentTemplateSelectOptions()
 }
 
+async function refreshTemplateOptionsFromServer() {
+  try {
+    const list = await fetchStudentTemplateSelectOptions()
+    if (list?.length) templateOptions.value = list
+  } catch {
+    /* keep local fallback */
+  }
+}
+
 async function loadRoleOptions() {
   optionsLoading.value = true
   let pm = []
   let mentor = []
+  let mid = []
   try {
-    const [pmData, mentorData] = await Promise.all([
+    const [pmData, mentorData, midData] = await Promise.all([
       fetchStudentFormPmOptions({ silent: true, loading: false }),
       fetchStudentFormMentorOptions({ silent: true, loading: false }),
+      fetchStudentFormMidPlatformOptions({ silent: true, loading: false }),
     ])
     pm = normalizePersonOptions(pmData)
     mentor = normalizePersonOptions(mentorData)
+    mid = normalizePersonOptions(midData)
   } catch {
     pm = [...FALLBACK_PM_OPTIONS]
     mentor = [...FALLBACK_MENTOR_OPTIONS]
+    mid = [...FALLBACK_MIDPLATFORM_OPTIONS]
   }
   if (!pm.length) pm = [...FALLBACK_PM_OPTIONS]
   if (!mentor.length) mentor = [...FALLBACK_MENTOR_OPTIONS]
   pmOptions.value = pm
   mentorOptions.value = mentor
+  midPlatformOptions.value = mid
   optionsLoading.value = false
 }
 
@@ -325,7 +388,7 @@ watch(
     if (!v) return
     clearFieldErrors()
     refreshTemplateOptions()
-    await loadRoleOptions()
+    await Promise.all([loadRoleOptions(), refreshTemplateOptionsFromServer()])
     form.name = props.initial?.name || ''
     form.startDate = props.initial?.startDate || todayStr
     const initTid = props.initial?.templateId
@@ -341,6 +404,11 @@ watch(
       mentorOptions.value,
       props.initial?.mentor,
       props.initial?.mentorId,
+    )
+    form.midPlatformId = matchOptionId(
+      midPlatformOptions.value,
+      props.initial?.midPlatform,
+      props.initial?.midPlatformId,
     )
   },
   { immediate: true },
@@ -361,6 +429,7 @@ function submit() {
   }
   const pm = pmOptions.value.find((o) => o.id === form.pmId)
   const ment = mentorOptions.value.find((o) => o.id === form.mentorId)
+  const mid = midPlatformOptions.value.find((o) => o.id === form.midPlatformId)
   const tpl = templateOptions.value.find((o) => o.id === form.templateId)
   emit('submit', {
     name: form.name.trim(),
@@ -369,8 +438,10 @@ function submit() {
     templateName: tpl?.name || '',
     owner: pm?.name || '',
     mentor: ment?.name || '',
+    midPlatform: mid?.name || '',
     pmId: form.pmId,
     mentorId: form.mentorId,
+    midPlatformId: form.midPlatformId,
   })
 }
 </script>

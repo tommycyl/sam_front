@@ -19,3 +19,7 @@ export function uploadFile(file, extra = {}) {
 export function getDictionary(type) {
   return get('/common/dict', { type })
 }
+
+export function changePassword(data) {
+  return post('/auth/change-password', data)
+}

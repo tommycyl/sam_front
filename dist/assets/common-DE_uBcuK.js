@@ -1,0 +1,1 @@
+import{h as o,p as n}from"./index-BgahFCOk.js";function a(t){return n("/auth/login",t)}function e(){return o("/auth/profile")}function s(t){return n("/auth/change-password",t)}export{s as c,e as g,a as l};

@@ -75,11 +75,16 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { showMessage } from '@/utils/request'
+import { changePassword, getProfile } from '@/api/common'
+import { clearAuth } from '@/utils/auth'
+
+const router = useRouter()
 
 const account = reactive({
-  username: 'admin',
+  username: '',
 })
 
 const form = reactive({
@@ -88,7 +93,18 @@ const form = reactive({
   confirmPassword: '',
 })
 
-function onSubmit() {
+const submitting = ref(false)
+
+onMounted(async () => {
+  try {
+    const data = await getProfile({ silent: true, loading: false })
+    account.username = data?.username || ''
+  } catch {
+    account.username = ''
+  }
+})
+
+async function onSubmit() {
   if (!form.oldPassword || !form.newPassword || !form.confirmPassword) {
     showMessage('请完整填写密码信息', 'warning')
     return
@@ -101,11 +117,24 @@ function onSubmit() {
     showMessage('两次输入的新密码不一致', 'error')
     return
   }
-
-  // 预留后端接口调用位置
-  showMessage('密码修改成功', 'success')
-  form.oldPassword = ''
-  form.newPassword = ''
-  form.confirmPassword = ''
+  submitting.value = true
+  try {
+    await changePassword({
+      oldPassword: form.oldPassword,
+      newPassword: form.newPassword,
+    })
+    showMessage('密码修改成功，请重新登录', 'success')
+    form.oldPassword = ''
+    form.newPassword = ''
+    form.confirmPassword = ''
+    setTimeout(() => {
+      clearAuth()
+      router.replace('/login')
+    }, 600)
+  } catch {
+    /* request 拦截器已弹错误 */
+  } finally {
+    submitting.value = false
+  }
 }
 </script>

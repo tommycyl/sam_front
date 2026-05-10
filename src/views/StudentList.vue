@@ -23,7 +23,7 @@
           @click="openAdd"
         >
           <span class="material-symbols-outlined text-[18px]">add</span>
-          新增记录
+          新增学生
         </button>
       </div>
     </div>
@@ -297,14 +297,19 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AddStudentModal from '@/components/AddStudentModal.vue'
 import TemplateSettingsModal from '@/components/TemplateSettingsModal.vue'
-import { fetchStudentTaskFilterOptions } from '@/api/student'
+import {
+  createStudent,
+  fetchStudentList,
+  fetchStudentTaskFilterOptions,
+} from '@/api/student'
 import { showMessage } from '@/utils/request'
 
 const router = useRouter()
+const loading = ref(false)
 
 const selectArrow = {
   backgroundImage:
@@ -325,48 +330,22 @@ const FALLBACK_TASK_OPTIONS = [
   { id: 'result_followup', name: '结果跟进' },
 ]
 
-const rows = ref([
-  {
-    id: 'STU-8821',
-    name: 'Chen Wei',
-    owner: 'Zhang San',
-    mentor: 'Dr. Smith',
-    progress: 75,
-    status: 'normal',
-    risk: 'low',
-    taskKeys: ['initial_eval', 'essay_draft', 'online_apply'],
-  },
-  {
-    id: 'STU-9032',
-    name: 'Li Yanting',
-    owner: 'Li Si',
-    mentor: 'Prof. Davis',
-    progress: 30,
-    status: 'delayed',
-    risk: 'high',
-    taskKeys: ['recommendation', 'essay_draft'],
-  },
-  {
-    id: 'STU-7745',
-    name: 'Wang Xiao',
-    owner: 'Zhang San',
-    mentor: 'Dr. Miller',
-    progress: 100,
-    status: 'completed',
-    risk: 'low',
-    taskKeys: ['initial_eval', 'recommendation', 'essay_draft', 'online_apply', 'interview_prep', 'result_followup'],
-  },
-  {
-    id: 'STU-8199',
-    name: 'Zhao Qiang',
-    owner: 'Wang Wu',
-    mentor: 'Prof. Lee',
-    progress: 50,
-    status: 'in_progress',
-    risk: 'medium',
-    taskKeys: ['essay_draft', 'interview_prep'],
-  },
-])
+const rows = ref([])
+
+async function loadStudents() {
+  loading.value = true
+  try {
+    const data = await fetchStudentList()
+    const list = Array.isArray(data?.list) ? data.list : Array.isArray(data) ? data : []
+    rows.value = list
+  } catch {
+    rows.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadStudents)
 
 const ownerOptions = computed(() => [...new Set(rows.value.map((r) => r.owner))])
 const mentorOptions = computed(() => [...new Set(rows.value.map((r) => r.mentor))])
@@ -381,8 +360,10 @@ const tempSelectedTaskIds = ref([])
 const filtered = computed(() =>
   rows.value.filter((r) => {
     const kw = filters.value.keyword.trim().toLowerCase()
-    if (kw && !r.name.toLowerCase().includes(kw) && !r.id.toLowerCase().includes(kw))
-      return false
+    if (kw) {
+      const haystack = `${r.name || ''} ${r.code || r.id || ''}`.toLowerCase()
+      if (!haystack.includes(kw)) return false
+    }
     if (filters.value.owner && r.owner !== filters.value.owner) return false
     if (filters.value.mentor && r.mentor !== filters.value.mentor) return false
     if (filters.value.risk && r.risk !== filters.value.risk) return false
@@ -526,22 +507,29 @@ function openAdd() {
 function onOpenTemplateSettings() {
   templateSettingsVisible.value = true
 }
-function onCreate(payload) {
-  const id = `STU-${Math.floor(Math.random() * 9000 + 1000)}`
-  rows.value.unshift({
-    id,
-    name: payload.name,
-    owner: payload.owner || '—',
-    mentor: payload.mentor || '—',
-    templateId: payload.templateId,
-    templateName: payload.templateName || '—',
-    progress: 0,
-    status: 'normal',
-    risk: 'low',
-    taskKeys: [],
-  })
-  addVisible.value = false
-  showMessage('已添加学生', 'success')
+
+function normalizeYmd(value) {
+  if (!value) return ''
+  const s = String(value).trim().replace(/\//g, '-')
+  return s
+}
+
+async function onCreate(payload) {
+  try {
+    await createStudent({
+      name: payload.name,
+      startDate: normalizeYmd(payload.startDate),
+      templateId: payload.templateId,
+      pmId: payload.pmId,
+      mentorId: payload.mentorId,
+      midPlatformId: payload.midPlatformId,
+    })
+    addVisible.value = false
+    showMessage('已添加学生', 'success')
+    await loadStudents()
+  } catch {
+    /* request 拦截器已弹错误 */
+  }
 }
 </script>
 

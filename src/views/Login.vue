@@ -139,6 +139,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { setToken } from '@/utils/auth'
+import { login as loginApi } from '@/api/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -153,25 +154,22 @@ const rootStyle = {
   background: 'linear-gradient(165deg, #001845 0%, #002060 42%, #001a4d 100%)',
 }
 
-/**
- * 预留：替换为 POST /auth/login 等
- * 当前任意非空用户名密码视为成功，便于联调前体验流程
- */
-async function loginRequest(user, pass) {
-  await new Promise((r) => setTimeout(r, 380))
-  if (!user || !pass) {
-    const err = new Error('请输入用户名和密码')
-    throw err
-  }
-  return { token: `session.${Date.now()}` }
-}
-
 async function onSubmit() {
   errorMsg.value = ''
+  if (!username.value || !password.value) {
+    errorMsg.value = '请输入用户名和密码'
+    return
+  }
   submitting.value = true
   try {
-    const { token } = await loginRequest(username.value, password.value)
-    setToken(token)
+    const data = await loginApi(
+      { username: username.value, password: password.value },
+      { silent: true, loading: false },
+    )
+    if (!data?.token) {
+      throw new Error('未获取到登录凭证')
+    }
+    setToken(data.token)
     const raw = route.query.redirect
     const nextPath =
       typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/students'

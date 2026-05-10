@@ -27,6 +27,7 @@
         <button
           type="button"
           class="flex items-center gap-1 rounded bg-primary px-4 py-1.5 text-sm font-medium text-on-primary transition-opacity hover:opacity-90"
+          @click="openAddTaskModal"
         >
           <span class="material-symbols-outlined text-sm">add</span>
           新增任务
@@ -112,8 +113,8 @@
         </div>
         <div class="divide-y divide-surface-variant overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
           <div
-            v-for="t in tasks"
-            :key="t.title + 'row'"
+            v-for="t in tasksSortedForDetail"
+            :key="t.id || `${t.title}|${t.startDate}|${t.endDate}`"
             class="flex flex-wrap items-start gap-x-4 gap-y-2 p-4 md:grid md:grid-cols-[2rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center md:gap-x-4 md:gap-y-0"
           >
             <div class="flex w-8 shrink-0 justify-center pt-0.5 md:pt-0">
@@ -216,13 +217,16 @@
                 <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-edit-teacher">
                   任务老师
                 </label>
-                <input
+                <select
                   id="task-edit-teacher"
                   v-model="draftTeacher"
-                  type="text"
-                  placeholder="负责老师姓名"
-                  class="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-base text-on-surface placeholder:text-outline focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
-                />
+                  class="h-11 w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  :style="selectArrowStyle"
+                >
+                  <option v-for="opt in teacherSelectOptions" :key="'edit-teacher-' + opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
               </div>
             </div>
             <div class="flex justify-end gap-2 border-t border-outline-variant bg-surface-container-low px-6 py-4">
@@ -245,14 +249,128 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- 新增任务 -->
+    <Teleport to="body">
+      <Transition name="fade-task-edit">
+        <div
+          v-if="addModalOpen"
+          class="fixed inset-0 z-[90] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="task-add-title"
+        >
+          <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-[2px]" @click="closeAddModal"></div>
+          <div
+            class="relative w-full max-w-md overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-modal"
+            @click.stop
+          >
+            <div class="border-b border-outline-variant px-6 py-4">
+              <h3 id="task-add-title" class="text-headline-md font-headline-md text-primary">新增任务</h3>
+              <p class="mt-1 text-body-sm text-on-surface-variant">为学生添加一条任务，保存后将出现在时间轴与任务明细中。</p>
+            </div>
+            <div class="space-y-4 px-6 py-5">
+              <div>
+                <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-add-title-input">
+                  任务名称
+                </label>
+                <input
+                  id="task-add-title-input"
+                  v-model="newTitle"
+                  type="text"
+                  placeholder="例如：文书终稿"
+                  class="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-base text-on-surface placeholder:text-outline focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                />
+              </div>
+              <div>
+                <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-add-status">
+                  状态
+                </label>
+                <select
+                  id="task-add-status"
+                  v-model="newStatus"
+                  class="h-11 w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  :style="selectArrowStyle"
+                >
+                  <option v-for="opt in statusOptions" :key="'add-' + opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-add-start">
+                    开始时间
+                  </label>
+                  <input
+                    id="task-add-start"
+                    v-model="newStartDate"
+                    type="date"
+                    class="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-add-end">
+                    结束时间
+                  </label>
+                  <input
+                    id="task-add-end"
+                    v-model="newEndDate"
+                    type="date"
+                    class="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="mb-2 block text-label-caps font-label-caps text-on-surface-variant" for="task-add-teacher">
+                  任务老师
+                </label>
+                <select
+                  id="task-add-teacher"
+                  v-model="newTeacher"
+                  class="h-11 w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 text-body-base text-on-surface focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
+                  :style="selectArrowStyle"
+                >
+                  <option v-for="opt in teacherSelectOptions" :key="'add-teacher-' + opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 border-t border-outline-variant bg-surface-container-low px-6 py-4">
+              <button
+                type="button"
+                class="rounded-lg px-4 py-2 text-body-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+                @click="closeAddModal"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-primary px-5 py-2 text-body-sm font-semibold text-on-primary transition-colors hover:bg-primary-container"
+                @click="confirmAddTask"
+              >
+                添加
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showMessage } from '@/utils/request'
 import TaskTimelinePanel from '@/components/TaskTimelinePanel.vue'
+import {
+  createStudentTask,
+  fetchStudentDetail,
+  updateTask,
+} from '@/api/student'
+import { fetchTeacherList } from '@/api/teacher'
 
 const router = useRouter()
 const props = defineProps({ id: { type: String, required: true } })
@@ -261,86 +379,52 @@ const range = ref('周')
 
 const student = ref({
   id: props.id,
-  name: '张明',
-  owner: '李经理',
-  mentor: '王老师',
-  pm: '陈PM',
-  startDate: '2026-04-07',
+  name: '',
+  owner: '—',
+  mentor: '—',
+  pm: '—',
+  startDate: '',
 })
 
-const tasks = ref([
-  {
-    title: '初始评估',
-    dotColor: 'bg-[#2196F3]',
-    startDate: '2026-04-06',
-    endDate: '2026-04-10',
-    status: 'completed',
-    teacher: 'Dr. Smith',
-    barClass: 'border-[#2196F3] bg-[#2196F3]/10 text-[#2196F3]',
-    dateShort: '4/6~4/10',
-  },
-  {
-    title: '推荐信',
-    dotColor: 'bg-[#9C27B0]',
-    startDate: '2026-04-13',
-    endDate: '2026-05-04',
-    status: 'delayed',
-    teacher: 'Prof. Davis',
-    barClass: 'border-error bg-error/10 text-error',
-    dateShort: '4/13~5/4',
-  },
-  {
-    title: '文书初稿',
-    dotColor: 'bg-[#9C27B0]',
-    startDate: '2026-04-20',
-    endDate: '2026-05-18',
-    status: 'in_progress',
-    teacher: '王老师',
-    barClass: 'border-[#9C27B0] bg-[#9C27B0]/10 text-[#9C27B0]',
-    dateShort: '4/20~5/18',
-  },
-  /** 与「文书初稿」时段重叠，用于演示同一时间段多条任务堆叠 */
-  {
-    title: '材料补充说明',
-    dotColor: 'bg-[#7e57c2]',
-    startDate: '2026-04-25',
-    endDate: '2026-05-10',
-    status: 'in_progress',
-    teacher: '李老师',
-    barClass: 'border-[#7e57c2] bg-[#7e57c2]/15 text-[#5e35b1]',
-    dateShort: '4/25~5/10',
-  },
-  {
-    title: '网申提交',
-    dotColor: 'bg-[#2196F3]',
-    startDate: '2026-05-26',
-    endDate: '2026-06-05',
-    status: 'pending',
-    teacher: '陈PM',
-    barClass: 'border-[#2196F3] bg-[#2196F3]/10 text-[#2196F3]',
-    dateShort: '5/26~6/5',
-  },
-  {
-    title: '面试准备',
-    dotColor: 'bg-[#FF9800]',
-    startDate: '2026-05-31',
-    endDate: '2026-06-15',
-    status: 'pending',
-    teacher: '赵老师',
-    barClass: 'border-[#FF9800] bg-[#FF9800]/10 text-[#FF9800]',
-    dateShort: '5/31~6/15',
-  },
-  {
-    title: '结果跟进',
-    dotColor: 'bg-[#4CAF50]',
-    startDate: '2026-06-20',
-    endDate: '2026-07-05',
-    status: 'pending',
-    teacher: '王老师',
-    barClass: 'border-[#4CAF50] bg-[#4CAF50]/10 text-[#4CAF50]',
-    dateShort: '6/20~7/5',
-  },
-])
+const tasks = ref([])
+const teacherList = ref([])
+
+async function loadDetail() {
+  try {
+    const data = await fetchStudentDetail(props.id)
+    if (data) {
+      student.value = {
+        id: data.id,
+        name: data.name || '',
+        owner: data.owner || '—',
+        mentor: data.mentor || '—',
+        pm: data.pm || data.owner || '—',
+        startDate: data.startDate || '',
+      }
+      tasks.value = Array.isArray(data.tasks) ? data.tasks : []
+    }
+  } catch {
+    /* request 拦截器已弹错误 */
+  }
+}
+
+async function loadTeachers() {
+  try {
+    const data = await fetchTeacherList({ silent: true, loading: false })
+    const list = Array.isArray(data?.list) ? data.list : Array.isArray(data) ? data : []
+    teacherList.value = list
+  } catch {
+    teacherList.value = []
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([loadDetail(), loadTeachers()])
+})
+
+watch(() => props.id, () => {
+  loadDetail()
+})
 
 /** 任务时间表展示：YYYY-MM-DD → MM/dd（无年份） */
 function formatMdSlashFromYmd(ymd) {
@@ -360,6 +444,47 @@ function parseYmdLocal(ymd) {
   return startOfDay(new Date(y, m - 1, d))
 }
 
+function formatYmdLocalDate(d) {
+  const x = startOfDay(d)
+  const y = x.getFullYear()
+  const mo = String(x.getMonth() + 1).padStart(2, '0')
+  const day = String(x.getDate()).padStart(2, '0')
+  return `${y}-${mo}-${day}`
+}
+
+function todayYmd() {
+  return formatYmdLocalDate(new Date())
+}
+
+function addDaysYmd(ymd, n) {
+  const base = parseYmdLocal(ymd)
+  const x = new Date(base)
+  x.setDate(x.getDate() + n)
+  return formatYmdLocalDate(x)
+}
+
+function taskVisualsForStatus(status) {
+  if (status === 'delayed') {
+    return { dotColor: 'bg-error', barClass: 'border-error bg-error/10 text-error' }
+  }
+  if (status === 'completed') {
+    return {
+      dotColor: 'bg-[#4CAF50]',
+      barClass: 'border-[#4CAF50] bg-[#4CAF50]/10 text-[#4CAF50]',
+    }
+  }
+  if (status === 'in_progress') {
+    return {
+      dotColor: 'bg-[#9C27B0]',
+      barClass: 'border-[#9C27B0] bg-[#9C27B0]/10 text-[#9C27B0]',
+    }
+  }
+  return {
+    dotColor: 'bg-[#2196F3]',
+    barClass: 'border-[#2196F3] bg-[#2196F3]/10 text-[#2196F3]',
+  }
+}
+
 function dayOffsetFrom(a, b) {
   return Math.round((startOfDay(b) - startOfDay(a)) / 86400000)
 }
@@ -367,6 +492,17 @@ function dayOffsetFrom(a, b) {
 const overdueTasks = computed(() => tasks.value.filter((t) => t.status === 'delayed'))
 const overdueCount = computed(() => overdueTasks.value.length)
 const weeklyTasks = computed(() => tasks.value.filter((t) => t.status === 'in_progress'))
+
+/** 任务明细：按开始时间、结束时间升序，同名时段再按标题 */
+const tasksSortedForDetail = computed(() =>
+  [...tasks.value].sort((a, b) => {
+    const byStart = String(a.startDate).localeCompare(String(b.startDate))
+    if (byStart !== 0) return byStart
+    const byEnd = String(a.endDate).localeCompare(String(b.endDate))
+    if (byEnd !== 0) return byEnd
+    return String(a.title).localeCompare(String(b.title), 'zh-Hans-CN')
+  }),
+)
 
 const completedCount = computed(() => tasks.value.filter((t) => t.status === 'completed').length)
 const progress = computed(() =>
@@ -445,6 +581,29 @@ const statusOptions = [
   { value: 'delayed', label: '延期' },
 ]
 
+/** 任务老师下拉：使用全量老师列表（id 作为 value，姓名做 label） */
+const teacherSelectOptions = computed(() => {
+  const list = (teacherList.value || []).map((t) => ({
+    value: String(t.id ?? ''),
+    label: t.name,
+  }))
+  return [{ value: '', label: '未指定' }, ...list]
+})
+
+function findTeacherIdByName(name) {
+  const x = String(name || '').trim()
+  if (!x || x === '—') return ''
+  const t = teacherList.value.find((row) => row.name === x)
+  return t ? String(t.id) : ''
+}
+
+function findTeacherNameById(id) {
+  const x = String(id || '').trim()
+  if (!x) return ''
+  const t = teacherList.value.find((row) => String(row.id) === x)
+  return t ? t.name : ''
+}
+
 const selectArrowStyle = {
   backgroundImage:
     "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23777680' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
@@ -460,17 +619,28 @@ const draftStartDate = ref('')
 const draftEndDate = ref('')
 const draftTeacher = ref('')
 
+const addModalOpen = ref(false)
+const newTitle = ref('')
+const newStatus = ref('pending')
+const newStartDate = ref('')
+const newEndDate = ref('')
+const newTeacher = ref('')
+
 /** 甘特条右侧短日期，MM/dd~MM/dd */
 function formatTaskDateShort(startYmd, endYmd) {
   return `${formatMdSlashFromYmd(startYmd)}~${formatMdSlashFromYmd(endYmd)}`
 }
 
 function openEditTask(t) {
+  addModalOpen.value = false
   editingTask.value = t
   draftStatus.value = t.status
   draftStartDate.value = t.startDate
   draftEndDate.value = t.endDate
-  draftTeacher.value = t.teacher || ''
+  draftTeacher.value =
+    t.teacherId != null && t.teacherId !== ''
+      ? String(t.teacherId)
+      : findTeacherIdByName(t.teacher)
   editModalOpen.value = true
 }
 
@@ -479,7 +649,7 @@ function closeEditModal() {
   editingTask.value = null
 }
 
-function confirmEditTask() {
+async function confirmEditTask() {
   if (!editingTask.value) return
   if (!draftStartDate.value || !draftEndDate.value) {
     showMessage('请填写开始与结束时间', 'warning')
@@ -489,13 +659,81 @@ function confirmEditTask() {
     showMessage('结束时间不能早于开始时间', 'error')
     return
   }
-  editingTask.value.status = draftStatus.value
-  editingTask.value.startDate = draftStartDate.value
-  editingTask.value.endDate = draftEndDate.value
-  editingTask.value.teacher = draftTeacher.value.trim() || '—'
-  editingTask.value.dateShort = formatTaskDateShort(draftStartDate.value, draftEndDate.value)
-  showMessage('任务已更新', 'success')
-  closeEditModal()
+  const taskId = editingTask.value.id
+  if (!taskId) {
+    showMessage('该任务缺少 ID，无法保存', 'error')
+    return
+  }
+  try {
+    const updated = await updateTask(taskId, {
+      status: draftStatus.value,
+      startDate: draftStartDate.value,
+      endDate: draftEndDate.value,
+      teacherId: draftTeacher.value || null,
+    })
+    if (updated) {
+      const i = tasks.value.findIndex((x) => x.id === taskId)
+      if (i >= 0) tasks.value[i] = updated
+    } else {
+      Object.assign(editingTask.value, {
+        status: draftStatus.value,
+        startDate: draftStartDate.value,
+        endDate: draftEndDate.value,
+        teacher: findTeacherNameById(draftTeacher.value) || '—',
+        teacherId: draftTeacher.value || null,
+      })
+    }
+    showMessage('任务已更新', 'success')
+    closeEditModal()
+  } catch {
+    /* 拦截器已弹错误 */
+  }
+}
+
+function openAddTaskModal() {
+  editModalOpen.value = false
+  editingTask.value = null
+  newTitle.value = ''
+  newStatus.value = 'pending'
+  const t0 = todayYmd()
+  newStartDate.value = t0
+  newEndDate.value = addDaysYmd(t0, 7)
+  newTeacher.value = ''
+  addModalOpen.value = true
+}
+
+function closeAddModal() {
+  addModalOpen.value = false
+}
+
+async function confirmAddTask() {
+  const title = newTitle.value.trim()
+  if (!title) {
+    showMessage('请填写任务名称', 'warning')
+    return
+  }
+  if (!newStartDate.value || !newEndDate.value) {
+    showMessage('请填写开始与结束时间', 'warning')
+    return
+  }
+  if (newStartDate.value > newEndDate.value) {
+    showMessage('结束时间不能早于开始时间', 'error')
+    return
+  }
+  try {
+    const created = await createStudentTask(props.id, {
+      title,
+      status: newStatus.value,
+      startDate: newStartDate.value,
+      endDate: newEndDate.value,
+      teacherId: newTeacher.value || null,
+    })
+    if (created) tasks.value.push(created)
+    showMessage('任务已添加', 'success')
+    closeAddModal()
+  } catch {
+    /* 拦截器已弹错误 */
+  }
 }
 
 function goBack() {

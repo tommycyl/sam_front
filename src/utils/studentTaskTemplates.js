@@ -1,7 +1,9 @@
-/** localStorage：与「设置模板」弹窗保存的数据结构一致 */
+import { fetchTemplates } from '@/api/template'
+
+/** localStorage：仅作为后端不可用时的兜底缓存 */
 export const STUDENT_TASK_TEMPLATES_KEY = 'sam.studentTaskTemplates.v1'
 
-/** 未保存过模板时，新增学生下拉的默认项（与模板弹窗初始「标准申请流程」id 对齐） */
+/** 后端真正写入前的兜底默认（与默认模板对齐） */
 export const DEFAULT_TEMPLATE_OPTIONS = [{ id: 'tpl-1', name: '标准申请流程' }]
 
 /**
@@ -27,9 +29,58 @@ export function persistStudentTaskTemplatesPayload(payload) {
   }
 }
 
-/** 供新增/编辑学生等处的下拉：{ id, name }[] */
+function normalizePayload(payload) {
+  if (!payload || typeof payload !== 'object') return null
+  const templates = Array.isArray(payload.templates) ? payload.templates : []
+  if (!templates.length) return null
+  return {
+    rules: payload.rules || {},
+    templates: templates.map((t) => ({
+      id: String(t.id ?? t.code ?? ''),
+      name: String(t.name ?? t.id ?? '未命名模板'),
+      steps: Array.isArray(t.steps)
+        ? t.steps.map((s) => ({
+            title: String(s.title ?? ''),
+            ownerRole: String(s.ownerRole ?? 'PM'),
+            startDays: Number(s.startDays ?? 0),
+            endDays: Number(s.endDays ?? 0),
+          }))
+        : [],
+    })),
+  }
+}
+
+/** 从后端拉取最新模板，并落本地缓存；失败时返回本地缓存 */
+export async function fetchStudentTaskTemplatesFromServer(config) {
+  try {
+    const data = await fetchTemplates({
+      silent: true,
+      loading: false,
+      ...(config || {}),
+    })
+    const norm = normalizePayload(data)
+    if (norm) {
+      persistStudentTaskTemplatesPayload(norm)
+      return norm
+    }
+  } catch {
+    /* swallow，回退到本地 */
+  }
+  return loadStudentTaskTemplatesPayload()
+}
+
+/** 同步获取模板下拉项（不发请求；用于刚打开弹窗时即时渲染） */
 export function getStudentTemplateSelectOptions() {
   const data = loadStudentTaskTemplatesPayload()
+  if (data?.templates?.length) {
+    return data.templates.map((t) => ({ id: String(t.id), name: String(t.name || t.id) }))
+  }
+  return [...DEFAULT_TEMPLATE_OPTIONS]
+}
+
+/** 从后端异步获取模板下拉项 */
+export async function fetchStudentTemplateSelectOptions() {
+  const data = await fetchStudentTaskTemplatesFromServer()
   if (data?.templates?.length) {
     return data.templates.map((t) => ({ id: String(t.id), name: String(t.name || t.id) }))
   }

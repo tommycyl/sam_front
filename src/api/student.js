@@ -24,6 +24,18 @@ export function fetchStudentTasks(id, params) {
   return get(`/students/${id}/tasks`, params)
 }
 
+export function createStudentTask(id, data) {
+  return post(`/students/${id}/tasks`, data)
+}
+
+export function updateTask(taskId, data) {
+  return put(`/tasks/${taskId}`, data)
+}
+
+export function deleteTask(taskId) {
+  return del(`/tasks/${taskId}`)
+}
+
 export function updateTaskStatus(taskId, status) {
   return put(`/tasks/${taskId}/status`, { status })
 }
@@ -63,4 +75,13 @@ export function fetchStudentFormPmOptions(config) {
  */
 export function fetchStudentFormMentorOptions(config) {
   return get('/students/meta/mentor-options', undefined, config)
+}
+
+/**
+ * 新增/编辑学生弹窗：可选「中台」老师列表
+ *
+ * 接口：GET /students/meta/midplatform-options
+ */
+export function fetchStudentFormMidPlatformOptions(config) {
+  return get('/students/meta/midplatform-options', undefined, config)
 }

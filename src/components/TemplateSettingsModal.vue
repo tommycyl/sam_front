@@ -222,9 +222,10 @@
 import { computed, ref, watch } from 'vue'
 import { showMessage } from '@/utils/request'
 import {
-  loadStudentTaskTemplatesPayload,
+  fetchStudentTaskTemplatesFromServer,
   persistStudentTaskTemplatesPayload,
 } from '@/utils/studentTaskTemplates'
+import { syncTemplates } from '@/api/template'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -269,8 +270,7 @@ const activeTemplate = computed(() => {
   return t || templates.value[0]
 })
 
-function hydrateFromStorage() {
-  const data = loadStudentTaskTemplatesPayload()
+function applyPayload(data) {
   if (!data?.templates?.length) return
   if (data.rules) {
     rules.value.delayAfterDeadlineDays =
@@ -288,11 +288,16 @@ function hydrateFromStorage() {
   }))
 }
 
+async function hydrate() {
+  const data = await fetchStudentTaskTemplatesFromServer()
+  applyPayload(data)
+}
+
 watch(
   () => props.visible,
-  (v) => {
+  async (v) => {
     if (!v) return
-    hydrateFromStorage()
+    await hydrate()
     if (!templates.value.find((t) => t.id === activeTemplateId.value)) {
       activeTemplateId.value = templates.value[0]?.id || ''
     }
@@ -360,7 +365,10 @@ function addStep() {
   })
 }
 
-function onSave() {
+const saving = ref(false)
+
+async function onSave() {
+  if (saving.value) return
   const payload = {
     rules: { ...rules.value },
     templates: templates.value.map((t) => ({
@@ -374,10 +382,30 @@ function onSave() {
       })),
     })),
   }
-  persistStudentTaskTemplatesPayload(payload)
-  emit('save', payload)
-  showMessage('模板设置已保存（本地）', 'success')
-  close()
+  saving.value = true
+  try {
+    const data = await syncTemplates(payload)
+    if (data?.templates?.length) {
+      applyPayload(data)
+      persistStudentTaskTemplatesPayload({
+        rules: data.rules || payload.rules,
+        templates: data.templates.map((t) => ({
+          id: String(t.id),
+          name: String(t.name ?? t.id),
+          steps: (t.steps || []).map((s) => ({ ...s })),
+        })),
+      })
+    } else {
+      persistStudentTaskTemplatesPayload(payload)
+    }
+    emit('save', payload)
+    showMessage('模板设置已保存', 'success')
+    close()
+  } catch {
+    /* request 拦截器已弹错误 */
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
