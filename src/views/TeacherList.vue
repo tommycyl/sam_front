@@ -66,9 +66,10 @@
           <tr
             v-for="row in pagedRows"
             :key="row.id"
-            class="transition-colors hover:bg-surface-container-low"
+            class="cursor-pointer transition-colors hover:bg-surface-container-low"
+            @click="goDetail(row.id)"
           >
-            <td class="px-4 py-3">
+            <td class="px-4 py-3" @click.stop>
               <input
                 type="checkbox"
                 class="rounded border-outline-variant text-primary focus:ring-primary"
@@ -90,13 +91,9 @@
                   <span v-else>{{ initials(row.name) }}</span>
                 </div>
                 <div class="min-w-0">
-                  <button
-                    type="button"
-                    class="block text-left font-bold text-primary hover:text-secondary transition-colors"
-                    @click="goDetail(row.id)"
-                  >
+                  <span class="block text-left font-bold text-primary">
                     {{ row.name }}
-                  </button>
+                  </span>
                   <div class="mt-0.5 text-xs text-on-surface-variant">
                     {{ roleLabel(row.role) }}
                   </div>
@@ -104,7 +101,7 @@
               </div>
             </td>
             <td class="px-4 py-3">{{ row.studentCount }}</td>
-            <td class="px-4 py-3 text-right">
+            <td class="px-4 py-3 text-right" @click.stop>
               <div class="flex items-center justify-end space-x-3">
                 <button
                   type="button"
