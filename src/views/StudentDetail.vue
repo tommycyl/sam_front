@@ -23,7 +23,7 @@
           </span>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <button
           type="button"
           class="flex items-center gap-1 rounded bg-primary px-4 py-1.5 text-sm font-medium text-on-primary transition-opacity hover:opacity-90"
@@ -103,12 +103,28 @@
         </div>
       </section>
 
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h3 class="text-headline-md font-headline-md text-primary">学生时间表</h3>
+        <button
+          type="button"
+          class="flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm font-medium text-on-surface transition-colors hover:border-primary hover:text-primary"
+          :aria-pressed="scheduleViewMode === 'calendar'"
+          @click="toggleScheduleView"
+        >
+          <span class="material-symbols-outlined text-[18px]">
+            {{ scheduleViewMode === 'timeline' ? 'calendar_month' : 'view_agenda' }}
+          </span>
+          {{ scheduleViewMode === 'timeline' ? '月历表' : '时间轴' }}
+        </button>
+      </div>
       <TaskTimelinePanel
+        v-if="scheduleViewMode === 'timeline'"
         v-model:range="range"
         :tasks="tasksForTimeline"
         subtitle-kind="teacher"
         :schedule-heading="studentTimelineScheduleTitle"
       />
+      <TaskMonthGridCalendar v-else :tasks="tasksForTimeline" />
 
       <!-- Task list -->
       <section class="space-y-4">
@@ -456,6 +472,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showMessage } from '@/utils/request'
 import TaskTimelinePanel from '@/components/TaskTimelinePanel.vue'
+import TaskMonthGridCalendar from '@/components/TaskMonthGridCalendar.vue'
 import {
   createStudentTask,
   fetchStudentDetail,
@@ -467,6 +484,12 @@ const router = useRouter()
 const props = defineProps({ id: { type: String, required: true } })
 
 const range = ref('周')
+/** timeline：原泳道时间表；calendar：月历网格 */
+const scheduleViewMode = ref('timeline')
+
+function toggleScheduleView() {
+  scheduleViewMode.value = scheduleViewMode.value === 'timeline' ? 'calendar' : 'timeline'
+}
 
 const student = ref({
   id: props.id,

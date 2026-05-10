@@ -124,14 +124,29 @@
       </div>
     </section>
 
-    <!-- 任务时间表（与学生详情相同交互：周连续条带 / 月分页横滑；周/月切换在时间表卡片内右上角） -->
-    <h3 class="text-headline-md font-headline-md text-primary">任务时间表</h3>
+    <!-- 任务时间表：时间轴 / 月历（与学生详情一致；数据为该老师名下任务） -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-headline-md font-headline-md text-primary">任务时间表</h3>
+      <button
+        type="button"
+        class="flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm font-medium text-on-surface transition-colors hover:border-primary hover:text-primary"
+        :aria-pressed="scheduleViewMode === 'calendar'"
+        @click="toggleScheduleView"
+      >
+        <span class="material-symbols-outlined text-[18px]">
+          {{ scheduleViewMode === 'timeline' ? 'calendar_month' : 'view_agenda' }}
+        </span>
+        {{ scheduleViewMode === 'timeline' ? '月历表' : '时间轴' }}
+      </button>
+    </div>
     <TaskTimelinePanel
+      v-if="scheduleViewMode === 'timeline'"
       v-model:range="range"
       :tasks="tasksForTimeline"
       subtitle-kind="student"
       :schedule-heading="teacherTimelineScheduleTitle"
     />
+    <TaskMonthGridCalendar v-else :tasks="tasksForTimeline" />
 
     <!-- 名下任务：名称、学生、时间 -->
     <section class="space-y-4">
@@ -205,6 +220,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import TaskTimelinePanel from '@/components/TaskTimelinePanel.vue'
+import TaskMonthGridCalendar from '@/components/TaskMonthGridCalendar.vue'
 import {
   fetchTeacherDetail,
   fetchTeacherStudents,
@@ -215,6 +231,11 @@ const router = useRouter()
 const props = defineProps({ id: { type: String, required: true } })
 
 const range = ref('周')
+/** timeline：泳道时间表；calendar：月历网格 */
+const scheduleViewMode = ref('timeline')
+function toggleScheduleView() {
+  scheduleViewMode.value = scheduleViewMode.value === 'timeline' ? 'calendar' : 'timeline'
+}
 
 const teacher = ref({
   id: props.id,
