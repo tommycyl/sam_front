@@ -536,11 +536,17 @@ function matrixTaskStatus(row, taskTitle) {
   return m[taskTitle] ?? null
 }
 
-/** 矩阵表行：至少在一个已选任务列上有任务（非「无此任务」整行隐藏） */
+/** 矩阵表行：至少有一列有任务；排序为「命中已选列数」多→少（3 列全有最前，其次 2，最后 1），同档按姓名 */
 const matrixTableRows = computed(() => {
   const tids = tempSelectedTaskIds.value
   if (!tids.length) return []
-  return baseFiltered.value.filter((row) => tids.some((tid) => matrixTaskStatus(row, tid) != null))
+  const rows = baseFiltered.value.filter((row) => tids.some((tid) => matrixTaskStatus(row, tid) != null))
+  const hitCount = (row) => tids.reduce((n, tid) => n + (matrixTaskStatus(row, tid) != null ? 1 : 0), 0)
+  return [...rows].sort((a, b) => {
+    const d = hitCount(b) - hitCount(a)
+    if (d !== 0) return d
+    return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hans-CN')
+  })
 })
 
 function matrixStatusLabel(status) {
