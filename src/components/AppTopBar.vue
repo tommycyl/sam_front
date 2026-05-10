@@ -14,6 +14,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { getProfile } from '@/api/common'
+import { getCachedProfile, setCachedProfile } from '@/utils/auth'
 
 const displayName = ref('')
 
@@ -34,9 +35,15 @@ const userInitials = computed(() => {
 })
 
 onMounted(async () => {
+  const cached = getCachedProfile()
+  if (cached?.username) {
+    displayName.value = cached.username
+    return
+  }
   try {
     const data = await getProfile({ silent: true, loading: false })
     displayName.value = data?.username || ''
+    if (data) setCachedProfile(data)
   } catch {
     displayName.value = ''
   }

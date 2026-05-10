@@ -191,7 +191,7 @@
                   {{ t.title }}
                 </span>
                 <span
-                  v-if="t.isLongTerm"
+                  v-if="isLongTermTask(t)"
                   class="shrink-0 rounded border border-outline-variant bg-surface-container-high px-1.5 py-0.5 text-[10px] font-semibold text-on-surface-variant"
                 >长期</span>
               </div>
@@ -244,7 +244,7 @@
               <p v-if="editingTask" class="mt-1 text-body-sm text-on-surface-variant">
                 任务：<span class="font-semibold text-on-surface">{{ editingTask.title }}</span>
                 <span
-                  v-if="editingTask.isLongTerm"
+                  v-if="editingTask && isLongTermTask(editingTask)"
                   class="ml-2 inline-block rounded border border-outline-variant bg-surface-container-high px-1.5 py-0.5 text-[10px] font-semibold text-on-surface-variant"
                 >长期</span>
               </p>
@@ -479,6 +479,7 @@ import {
   updateTask,
 } from '@/api/student'
 import { fetchTeacherList } from '@/api/teacher'
+import { isLongTermFlag, normalizeTaskRow } from '@/utils/taskFlags'
 
 const router = useRouter()
 const props = defineProps({ id: { type: String, required: true } })
@@ -521,7 +522,8 @@ async function loadDetail() {
         pm: data.pm || data.owner || '—',
         startDate: data.startDate || '',
       }
-      tasks.value = Array.isArray(data.tasks) ? data.tasks : []
+      const rawTasks = Array.isArray(data.tasks) ? data.tasks : []
+      tasks.value = rawTasks.map((t) => normalizeTaskRow(t))
     }
   } catch {
     /* request 拦截器已弹错误 */
@@ -530,7 +532,7 @@ async function loadDetail() {
 
 async function loadTeachers() {
   try {
-    const data = await fetchTeacherList({ silent: true, loading: false })
+    const data = await fetchTeacherList({}, { silent: true, loading: false })
     const list = Array.isArray(data?.list) ? data.list : Array.isArray(data) ? data : []
     teacherList.value = list
   } catch {
@@ -610,7 +612,7 @@ function dayOffsetFrom(a, b) {
 }
 
 function isLongTermTask(t) {
-  return Boolean(t?.isLongTerm)
+  return isLongTermFlag(t)
 }
 
 const tasksForTimeline = computed(() => tasks.value.filter((t) => !isLongTermTask(t)))
@@ -784,7 +786,7 @@ function openEditTask(t) {
     t.teacherId != null && t.teacherId !== ''
       ? String(t.teacherId)
       : findTeacherIdByName(t.teacher)
-  draftLongTermStr.value = t.isLongTerm ? '1' : '0'
+  draftLongTermStr.value = isLongTermTask(t) ? '1' : '0'
   editModalOpen.value = true
 }
 
@@ -818,7 +820,7 @@ async function confirmEditTask() {
     })
     if (updated) {
       const i = tasks.value.findIndex((x) => x.id === taskId)
-      if (i >= 0) tasks.value[i] = updated
+      if (i >= 0) tasks.value[i] = normalizeTaskRow(updated)
     } else {
       Object.assign(editingTask.value, {
         status: draftStatus.value,
@@ -876,7 +878,7 @@ async function confirmAddTask() {
       teacherId: newTeacher.value || null,
       isLongTerm: newLongTermStr.value === '1',
     })
-    if (created) tasks.value.push(created)
+    if (created) tasks.value.push(normalizeTaskRow(created))
     showMessage('任务已添加', 'success')
     closeAddModal()
   } catch {

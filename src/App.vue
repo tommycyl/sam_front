@@ -12,7 +12,9 @@
             <AppTopBar />
 
             <main class="flex-1 overflow-auto">
-              <component :is="Component" />
+              <keep-alive :max="20">
+                <component :is="Component" :key="route.fullPath" />
+              </keep-alive>
             </main>
           </div>
         </div>

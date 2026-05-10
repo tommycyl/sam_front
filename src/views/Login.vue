@@ -140,8 +140,8 @@
 <script setup>
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { setToken } from '@/utils/auth'
-import { login as loginApi } from '@/api/common'
+import { setCachedProfile, setToken } from '@/utils/auth'
+import { getProfile, login as loginApi } from '@/api/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -172,6 +172,12 @@ async function onSubmit() {
       throw new Error('未获取到登录凭证')
     }
     setToken(data.token)
+    try {
+      const profile = await getProfile({ silent: true, loading: false })
+      setCachedProfile(profile)
+    } catch {
+      setCachedProfile(null)
+    }
     const raw = route.query.redirect
     const nextPath =
       typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/students'

@@ -151,9 +151,39 @@
     <!-- 名下任务：名称、学生、时间 -->
     <section class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-          <h2 class="text-headline-md font-headline-md text-on-surface shrink-0">任务明细</h2>
-          <div class="relative w-full min-w-[12rem] max-w-sm flex-1">
+        <h2 class="text-headline-md font-headline-md text-on-surface shrink-0">任务明细</h2>
+        <div class="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
+          <div
+            class="inline-flex shrink-0 rounded-lg border border-outline-variant bg-surface-container-low p-0.5"
+            role="group"
+            aria-label="任务明细筛选"
+          >
+            <button
+              type="button"
+              class="rounded-md px-3 py-1.5 text-body-sm font-semibold transition-colors"
+              :class="
+                taskDetailFilter === 'all'
+                  ? 'bg-surface-container-lowest text-primary shadow-sm'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              "
+              @click="setTaskDetailFilter('all')"
+            >
+              全部任务
+            </button>
+            <button
+              type="button"
+              class="rounded-md px-3 py-1.5 text-body-sm font-semibold transition-colors"
+              :class="
+                taskDetailFilter === 'long_term'
+                  ? 'bg-surface-container-lowest text-primary shadow-sm'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              "
+              @click="setTaskDetailFilter('long_term')"
+            >
+              长期任务
+            </button>
+          </div>
+          <div class="relative w-full min-w-[12rem] max-w-sm sm:w-auto sm:flex-1 sm:basis-[14rem]">
             <span
               class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant"
             >search</span>
@@ -165,18 +195,26 @@
               class="h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-10 pr-3 text-body-sm text-on-surface placeholder:text-outline focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/50"
             />
           </div>
+          <span class="shrink-0 text-body-sm text-on-surface-variant">
+            <template v-if="taskDetailFilter === 'all'">
+              <template v-if="taskDetailSearch">{{ filteredTasksForDetail.length }} / {{ tasks.length }} 个</template>
+              <template v-else>{{ tasks.length }} 个</template>
+            </template>
+            <template v-else>
+              <template v-if="taskDetailSearch">
+                {{ filteredTasksForDetail.length }} / {{ longTermCount }} 个
+              </template>
+              <template v-else>{{ longTermCount }} / {{ tasks.length }} 个</template>
+            </template>
+          </span>
         </div>
-        <span class="shrink-0 text-body-sm text-on-surface-variant">
-          <template v-if="taskDetailSearch">{{ filteredTasksForDetail.length }} / {{ tasks.length }}个</template>
-          <template v-else>{{ tasks.length }}个</template>
-        </span>
       </div>
       <div class="divide-y divide-surface-variant overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
         <div
           v-if="filteredTasksForDetail.length === 0"
           class="px-4 py-10 text-center text-body-sm text-on-surface-variant"
         >
-          无匹配任务，请尝试其他关键词
+          {{ taskDetailEmptyHint }}
         </div>
         <div
           v-for="t in filteredTasksForDetail"
@@ -192,7 +230,7 @@
                 {{ t.title }}
               </span>
               <span
-                v-if="t.isLongTerm"
+                v-if="isLongTermTask(t)"
                 class="shrink-0 rounded border border-outline-variant bg-surface-container-high px-1.5 py-0.5 text-[10px] font-semibold text-on-surface-variant"
               >长期</span>
             </div>
@@ -226,6 +264,7 @@ import {
   fetchTeacherStudents,
   fetchTeacherTasks,
 } from '@/api/teacher'
+import { isLongTermFlag, normalizeTaskRow } from '@/utils/taskFlags'
 
 const router = useRouter()
 const props = defineProps({ id: { type: String, required: true } })
@@ -289,7 +328,7 @@ const students = ref([])
 const tasks = ref([])
 
 function isLongTermTask(t) {
-  return Boolean(t?.isLongTerm)
+  return isLongTermFlag(t)
 }
 
 const tasksForTimeline = computed(() => tasks.value.filter((t) => !isLongTermTask(t)))
@@ -334,7 +373,7 @@ async function loadTasks() {
   try {
     const data = await fetchTeacherTasks(props.id)
     const list = Array.isArray(data?.list) ? data.list : Array.isArray(data) ? data : []
-    tasks.value = list
+    tasks.value = list.map((t) => normalizeTaskRow(t))
   } catch {
     tasks.value = []
   }
@@ -365,13 +404,45 @@ function studentProgressBarClass(row) {
   return 'bg-secondary'
 }
 
-/** 任务明细列表：按学生姓名模糊筛选（中英文不区分大小写） */
+/** 任务明细：全部 | 仅长期；再按学生姓名筛选；与学生详情排序一致 */
+const taskDetailFilter = ref('all')
 const taskDetailSearch = ref('')
+
+function setTaskDetailFilter(mode) {
+  taskDetailFilter.value = mode
+}
+
+const longTermCount = computed(() => tasks.value.filter((t) => isLongTermTask(t)).length)
+
+const tasksInDetailScope = computed(() =>
+  taskDetailFilter.value === 'long_term'
+    ? tasks.value.filter((t) => isLongTermTask(t))
+    : [...tasks.value],
+)
+
 const filteredTasksForDetail = computed(() => {
   const raw = taskDetailSearch.value.trim()
-  if (!raw) return tasks.value
-  const q = raw.toLowerCase()
-  return tasks.value.filter((t) => String(t.student || '').toLowerCase().includes(q))
+  const searched = !raw
+    ? [...tasksInDetailScope.value]
+    : tasksInDetailScope.value.filter((t) =>
+        String(t.student || '').toLowerCase().includes(raw.toLowerCase()),
+      )
+  return searched.sort((a, b) => {
+    const byStart = String(a.startDate).localeCompare(String(b.startDate))
+    if (byStart !== 0) return byStart
+    const byEnd = String(a.endDate).localeCompare(String(b.endDate))
+    if (byEnd !== 0) return byEnd
+    return String(a.title).localeCompare(String(b.title), 'zh-Hans-CN')
+  })
+})
+
+const taskDetailEmptyHint = computed(() => {
+  if (!tasks.value.length) return '暂无任务'
+  if (!tasksInDetailScope.value.length) {
+    return taskDetailFilter.value === 'long_term' ? '暂无长期任务' : '暂无任务'
+  }
+  if (!filteredTasksForDetail.value.length) return '无匹配任务，请尝试其他关键词'
+  return ''
 })
 
 function startOfDay(d) {

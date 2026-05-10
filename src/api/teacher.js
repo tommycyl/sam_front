@@ -1,7 +1,7 @@
 import { get, post, put, del } from '@/utils/request'
 
-export function fetchTeacherList(params) {
-  return get('/teachers', params)
+export function fetchTeacherList(params = {}, config = {}) {
+  return get('/teachers', params, config)
 }
 
 export function fetchTeacherDetail(id) {

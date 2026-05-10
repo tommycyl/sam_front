@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { reactive, ref } from 'vue'
+import { clearAuth } from '@/utils/auth'
 
 /**
  * 全局 loading 计数 + Toast 消息状态
@@ -86,7 +87,7 @@ service.interceptors.response.use(
       if (response.config.silent !== true) showMessage(msg, 'error')
 
       if (res.code === 401 || res.code === 403) {
-        localStorage.removeItem('token')
+        clearAuth()
       }
       return Promise.reject(new Error(msg))
     }

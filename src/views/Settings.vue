@@ -79,7 +79,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showMessage } from '@/utils/request'
 import { changePassword, getProfile } from '@/api/common'
-import { clearAuth } from '@/utils/auth'
+import { clearAuth, getCachedProfile, setCachedProfile } from '@/utils/auth'
 
 const router = useRouter()
 
@@ -96,9 +96,15 @@ const form = reactive({
 const submitting = ref(false)
 
 onMounted(async () => {
+  const cached = getCachedProfile()
+  if (cached?.username) {
+    account.username = cached.username
+    return
+  }
   try {
     const data = await getProfile({ silent: true, loading: false })
     account.username = data?.username || ''
+    if (data) setCachedProfile(data)
   } catch {
     account.username = ''
   }
