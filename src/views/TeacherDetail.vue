@@ -145,6 +145,7 @@
       :tasks="tasksForTimeline"
       subtitle-kind="student"
       :schedule-heading="teacherTimelineScheduleTitle"
+      :recenter-at="timelineRecenterTick"
     />
     <TaskMonthGridCalendar v-else :tasks="tasksForTimeline" />
 
@@ -245,7 +246,6 @@
             <span
               class="rounded px-2 py-0.5 text-xs font-medium"
               :class="taskStatusBadgeClass(t)"
-              :style="taskStatusBadgeStyle(t)"
             >{{ taskStatusLabel(t.status) }}</span>
           </div>
         </div>
@@ -255,7 +255,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import TaskTimelinePanel from '@/components/TaskTimelinePanel.vue'
 import TaskMonthGridCalendar from '@/components/TaskMonthGridCalendar.vue'
@@ -326,6 +326,7 @@ function avatarFallback(name) {
 
 const students = ref([])
 const tasks = ref([])
+const timelineRecenterTick = ref(0)
 
 function isLongTermTask(t) {
   return isLongTermFlag(t)
@@ -381,10 +382,17 @@ async function loadTasks() {
 
 async function loadAll() {
   await Promise.all([loadTeacher(), loadStudents(), loadTasks()])
+  await nextTick()
+  timelineRecenterTick.value++
 }
 
 onMounted(loadAll)
 watch(() => props.id, loadAll)
+
+onActivated(async () => {
+  await nextTick()
+  timelineRecenterTick.value++
+})
 
 function studentStatusLabel(s) {
   return { normal: '正常', attention: '需关注' }[s] || s
@@ -445,21 +453,6 @@ const taskDetailEmptyHint = computed(() => {
   return ''
 })
 
-function startOfDay(d) {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
-}
-
-function parseYmdLocal(ymd) {
-  const [y, m, d] = String(ymd).split('-').map(Number)
-  return startOfDay(new Date(y, m - 1, d))
-}
-
-function dayOffsetFrom(a, b) {
-  return Math.round((startOfDay(b) - startOfDay(a)) / 86400000)
-}
-
 function taskStatusLabel(s) {
   return {
     completed: '已完成',
@@ -469,46 +462,12 @@ function taskStatusLabel(s) {
   }[s] || s
 }
 
-function incompleteStartCloseness(task) {
-  if (task?.status !== 'pending' || !task?.startDate) return 0
-  const today = startOfDay(new Date())
-  const start = parseYmdLocal(task.startDate)
-  const daysUntil = dayOffsetFrom(today, start)
-  if (daysUntil > 21) return 0
-  if (daysUntil <= 0) return 1
-  return 1 - daysUntil / 21
-}
-
-function lerp(a, b, t) {
-  return a + (b - a) * t
-}
-
-function incompleteBadgeStyleFromCloseness(c) {
-  const t = Math.min(1, Math.max(0, c))
-  const bg = `hsl(${lerp(214, 220, t)}, ${lerp(32, 86, t)}%, ${lerp(94, 40, t)}%)`
-  const fg = `hsl(218, ${lerp(16, 92, t)}%, ${lerp(38, 99, t)}%)`
-  const br = `hsl(217, ${lerp(28, 72, t)}%, ${lerp(86, 30, t)}%)`
-  return {
-    backgroundColor: bg,
-    color: fg,
-    borderColor: br,
-    borderWidth: '1px',
-    borderStyle: 'solid',
-  }
-}
-
 function taskStatusBadgeClass(task) {
   const s = task.status
   if (s === 'completed') return 'bg-green-100 text-green-700'
   if (s === 'delayed') return 'border border-[#fde047] bg-[#fef9c3] text-[#854d0e]'
   if (s === 'in_progress') return 'border border-[#2563eb] bg-[#bfdbfe] text-[#1d4ed8]'
-  if (s === 'pending') return ''
   return 'border border-outline-variant bg-surface-container-high text-on-surface-variant'
-}
-
-function taskStatusBadgeStyle(task) {
-  if (task.status !== 'pending') return {}
-  return incompleteBadgeStyleFromCloseness(incompleteStartCloseness(task))
 }
 
 function goBack() {

@@ -208,6 +208,19 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  addDaysChina,
+  chinaTodayYmd,
+  chinaWeekdayZhShort,
+  dayOffsetFromChina,
+  endOfMonthChina,
+  formatMdSlashChina,
+  formatYearMonthTitleChina,
+  formatYmdChina,
+  parseYmdChina,
+  startOfMonthChina,
+  startOfWeekMondayChina,
+} from '@/utils/chinaTime'
 
 const props = defineProps({
   /** 与学生详情任务结构一致；教师视图需带 `student` 姓名 */
@@ -216,6 +229,8 @@ const props = defineProps({
   subtitleKind: { type: String, default: 'teacher', validator: (v) => v === 'teacher' || v === 'student' },
   /** 显示在「时间轴」列下方，例如「张三 时间表」；空则不展示 */
   scheduleHeading: { type: String, default: '' },
+  /** 每次进入详情等场景递增，用于将横向滚动重新对齐到「今天」在视口中间 */
+  recenterAt: { type: Number, default: 0 },
 })
 
 const scheduleHeadingTrimmed = computed(() => String(props.scheduleHeading || '').trim())
@@ -226,9 +241,52 @@ const TASK_TRACK_ROW_PX = 80
 const TASK_SWIMLANE_PAD_PX = 10
 const taskCardMinHeightPx = 72
 const WEEK_COLUMN_WIDTH_PX = 200
-const CHINESE_WDAY = ['日', '一', '二', '三', '四', '五', '六']
+/** 时间轴左右可继续延伸：靠近边缘时追加的日历长度 */
+const WEEK_PAD_INITIAL_DAYS = 56
+const MONTH_PAD_INITIAL_DAYS = 120
+const WEEK_SCROLL_EXTEND_DAYS = 56
+const MONTH_SCROLL_EXTEND_DAYS = 120
+const SCROLL_EXTEND_EDGE_PX = 280
 
 const timelineScrollRef = ref(null)
+/** 相对任务最早日在左侧多铺的日历天数（可随滚动增大） */
+const weekExtraDaysBefore = ref(WEEK_PAD_INITIAL_DAYS)
+const weekExtraDaysAfter = ref(WEEK_PAD_INITIAL_DAYS)
+const monthExtraDaysBefore = ref(MONTH_PAD_INITIAL_DAYS)
+const monthExtraDaysAfter = ref(MONTH_PAD_INITIAL_DAYS)
+
+let timelineScrollRaf = 0
+
+/** 未开始任务：进入页面时按「距开始日远近」算出的深浅，之后保持不变（再次进入详情会清空重算） */
+const frozenPendingStartCloseness = new Map()
+
+function clearFrozenPendingColors() {
+  frozenPendingStartCloseness.clear()
+}
+
+function taskClosenessKey(task) {
+  if (task?.id != null && task.id !== '') return `id:${task.id}`
+  return `t:${String(task?.title || '')}|${String(task?.startDate || '')}`
+}
+
+function computePendingStartCloseness(task) {
+  if (task?.status !== 'pending' || !task?.startDate) return 0
+  const today = parseYmdChina(chinaTodayYmd())
+  const start = parseYmdChina(task.startDate)
+  const daysUntil = dayOffsetFromChina(today, start)
+  if (daysUntil > 21) return 0
+  if (daysUntil <= 0) return 1
+  return 1 - daysUntil / 21
+}
+
+function getFrozenPendingStartCloseness(task) {
+  if (task?.status !== 'pending' || !task?.startDate) return null
+  const k = taskClosenessKey(task)
+  if (frozenPendingStartCloseness.has(k)) return frozenPendingStartCloseness.get(k)
+  const c = computePendingStartCloseness(task)
+  frozenPendingStartCloseness.set(k, c)
+  return c
+}
 
 const timelineDrag = {
   active: false,
@@ -282,26 +340,100 @@ function onTimelineWheel(e) {
   if (e.shiftKey) return
   const el = timelineScrollRef.value
   if (!el) return
-  if (el.scrollWidth <= el.clientWidth + 1) return
+  if (el.scrollWidth <= el.clientWidth + 1) {
+    onTimelineScrollExtend()
+    return
+  }
   const dx = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY
   if (dx === 0) return
   el.scrollLeft += dx
   e.preventDefault()
 }
 
-function startOfDay(d) {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
+function resetTimelineScrollPaddings() {
+  weekExtraDaysBefore.value = WEEK_PAD_INITIAL_DAYS
+  weekExtraDaysAfter.value = WEEK_PAD_INITIAL_DAYS
+  monthExtraDaysBefore.value = MONTH_PAD_INITIAL_DAYS
+  monthExtraDaysAfter.value = MONTH_PAD_INITIAL_DAYS
 }
 
-function parseYmdLocal(ymd) {
-  const [y, m, d] = String(ymd).split('-').map(Number)
-  return startOfDay(new Date(y, m - 1, d))
+function onTimelineScrollExtend() {
+  const el = timelineScrollRef.value
+  if (!el) return
+
+  if (range.value === '周') {
+    if (!timelineWeekStrip.value) return
+    if (el.scrollWidth <= el.clientWidth + 2) {
+      weekExtraDaysBefore.value += WEEK_SCROLL_EXTEND_DAYS
+      weekExtraDaysAfter.value += WEEK_SCROLL_EXTEND_DAYS
+      return
+    }
+    if (el.scrollLeft < SCROLL_EXTEND_EDGE_PX) {
+      const prevW = el.scrollWidth
+      const prevL = el.scrollLeft
+      weekExtraDaysBefore.value += WEEK_SCROLL_EXTEND_DAYS
+      nextTick(() => {
+        const el2 = timelineScrollRef.value
+        if (!el2) return
+        el2.scrollLeft = prevL + (el2.scrollWidth - prevW)
+      })
+      return
+    }
+    if (el.scrollLeft + el.clientWidth > el.scrollWidth - SCROLL_EXTEND_EDGE_PX) {
+      weekExtraDaysAfter.value += WEEK_SCROLL_EXTEND_DAYS
+    }
+    return
+  }
+
+  if (range.value === '月') {
+    if (!timelineMonthPages.value.length) return
+    if (el.scrollWidth <= el.clientWidth + 2) {
+      monthExtraDaysBefore.value += MONTH_SCROLL_EXTEND_DAYS
+      monthExtraDaysAfter.value += MONTH_SCROLL_EXTEND_DAYS
+      return
+    }
+    if (el.scrollLeft < SCROLL_EXTEND_EDGE_PX) {
+      const prevW = el.scrollWidth
+      const prevL = el.scrollLeft
+      monthExtraDaysBefore.value += MONTH_SCROLL_EXTEND_DAYS
+      nextTick(() => {
+        const el2 = timelineScrollRef.value
+        if (!el2) return
+        el2.scrollLeft = prevL + (el2.scrollWidth - prevW)
+      })
+      return
+    }
+    if (el.scrollLeft + el.clientWidth > el.scrollWidth - SCROLL_EXTEND_EDGE_PX) {
+      monthExtraDaysAfter.value += MONTH_SCROLL_EXTEND_DAYS
+    }
+  }
 }
 
-function dayOffsetFrom(a, b) {
-  return Math.round((startOfDay(b) - startOfDay(a)) / 86400000)
+function onTimelineScroll() {
+  if (timelineScrollRaf) return
+  timelineScrollRaf = requestAnimationFrame(() => {
+    timelineScrollRaf = 0
+    onTimelineScrollExtend()
+  })
+}
+
+/** 内容比视口窄时多铺几段，否则无法触发横向滚动与边缘扩展 */
+async function ensureTimelineHorizontallyScrollable() {
+  for (let i = 0; i < 10; i++) {
+    await nextTick()
+    const el = timelineScrollRef.value
+    if (!el) return
+    if (el.scrollWidth > el.clientWidth + 2) return
+    if (range.value === '周') {
+      weekExtraDaysBefore.value += WEEK_SCROLL_EXTEND_DAYS
+      weekExtraDaysAfter.value += WEEK_SCROLL_EXTEND_DAYS
+    } else if (range.value === '月') {
+      monthExtraDaysBefore.value += MONTH_SCROLL_EXTEND_DAYS
+      monthExtraDaysAfter.value += MONTH_SCROLL_EXTEND_DAYS
+    } else {
+      return
+    }
+  }
 }
 
 function formatMdSlashFromYmd(ymd) {
@@ -310,38 +442,8 @@ function formatMdSlashFromYmd(ymd) {
   return `${p[1].padStart(2, '0')}/${p[2].padStart(2, '0')}`
 }
 
-function formatMdSlashFromDate(d) {
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${m}/${day}`
-}
-
-function addDays(d, n) {
-  const x = new Date(d)
-  x.setDate(x.getDate() + n)
-  return startOfDay(x)
-}
-
-function startOfWeekMonday(d) {
-  const x = startOfDay(new Date(d))
-  const wd = x.getDay()
-  const diff = wd === 0 ? -6 : 1 - wd
-  x.setDate(x.getDate() + diff)
-  return x
-}
-
-function startOfMonth(d) {
-  const x = startOfDay(new Date(d))
-  return startOfDay(new Date(x.getFullYear(), x.getMonth(), 1))
-}
-
-function endOfMonthFor(d) {
-  const x = startOfDay(new Date(d))
-  return startOfDay(new Date(x.getFullYear(), x.getMonth() + 1, 0))
-}
-
 function daysInPeriodInclusive(periodStart, periodEnd) {
-  return Math.max(1, dayOffsetFrom(periodStart, periodEnd) + 1)
+  return Math.max(1, dayOffsetFromChina(periodStart, periodEnd) + 1)
 }
 
 function layoutTracksForItems(items, totalDays) {
@@ -380,13 +482,13 @@ function buildLaidOutForPeriod(periodStart, periodEnd, taskArray) {
   const totalDays = daysInPeriodInclusive(periodStart, periodEnd)
   const items = []
   taskArray.forEach((task, i) => {
-    const ts = parseYmdLocal(task.startDate)
-    const te = parseYmdLocal(task.endDate)
+    const ts = parseYmdChina(task.startDate)
+    const te = parseYmdChina(task.endDate)
     const clipS = ts < periodStart ? periodStart : ts
     const clipE = te > periodEnd ? periodEnd : te
     if (clipE < periodStart || clipS > periodEnd) return
-    const ns = dayOffsetFrom(periodStart, clipS)
-    const ne = dayOffsetFrom(periodStart, clipE)
+    const ns = dayOffsetFromChina(periodStart, clipS)
+    const ne = dayOffsetFromChina(periodStart, clipE)
     items.push({ task, key: `${task.title}-${i}`, ns, ne: Math.max(ns, ne) })
   })
   return layoutTracksForItems(items, totalDays)
@@ -396,11 +498,11 @@ function buildLaidOutForMonthPageMerged(mStart, mEnd, taskArray) {
   const { laidOut } = buildLaidOutForPeriod(mStart, mEnd, taskArray)
   const days = daysInPeriodInclusive(mStart, mEnd)
   const merged = laidOut
-    .filter((it) => parseYmdLocal(it.task.startDate) >= mStart)
+    .filter((it) => parseYmdChina(it.task.startDate) >= mStart)
     .map((it) => {
-      const te = parseYmdLocal(it.task.endDate)
+      const te = parseYmdChina(it.task.endDate)
       if (te <= mEnd) return it
-      const neFull = dayOffsetFrom(mStart, te)
+      const neFull = dayOffsetFromChina(mStart, te)
       const widthPct = Math.max(((neFull - it.ns + 1) / days) * 100, 1.2)
       return { ...it, widthPct }
     })
@@ -413,11 +515,14 @@ const taskDateBounds = computed(() => {
   let min = null
   let max = null
   for (const t of props.tasks) {
-    const a = parseYmdLocal(t.startDate)
-    const b = parseYmdLocal(t.endDate)
+    const a = parseYmdChina(t.startDate)
+    const b = parseYmdChina(t.endDate)
+    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) continue
     if (!min || a < min) min = a
     if (!max || b > max) max = b
   }
+  const today = parseYmdChina(chinaTodayYmd())
+  if (!min || !max) return { min: today, max: today }
   return { min, max }
 })
 
@@ -425,26 +530,24 @@ const timelineWeekStrip = computed(() => {
   const { min, max } = taskDateBounds.value
   if (!min || !max) return null
 
-  const today = startOfDay(new Date())
-  const padDaysBefore = 56
-  const padDaysAfter = 56
-  const rangeMin = addDays(min, -padDaysBefore)
-  const rangeMax = addDays(max, padDaysAfter)
+  const today = parseYmdChina(chinaTodayYmd())
+  const rangeMin = addDaysChina(min, -weekExtraDaysBefore.value)
+  const rangeMax = addDaysChina(max, weekExtraDaysAfter.value)
 
   const weekHeaders = []
-  let wStart = startOfWeekMonday(rangeMin)
-  const limit = startOfWeekMonday(rangeMax)
+  let wStart = startOfWeekMondayChina(rangeMin)
+  const limit = startOfWeekMondayChina(rangeMax)
   while (wStart <= limit) {
-    const wEnd = addDays(wStart, 6)
+    const wEnd = addDaysChina(wStart, 6)
     weekHeaders.push({
-      snapKey: `w-${wStart.getFullYear()}-${wStart.getMonth() + 1}-${wStart.getDate()}`,
+      snapKey: `w-${formatYmdChina(wStart)}`,
       start: wStart,
       end: wEnd,
       widthPx: WEEK_COLUMN_WIDTH_PX,
-      titleLabel: `${formatMdSlashFromDate(wStart)} — ${formatMdSlashFromDate(wEnd)}`,
+      titleLabel: `${formatMdSlashChina(wStart)} — ${formatMdSlashChina(wEnd)}`,
       containsToday: today >= wStart && today <= wEnd,
     })
-    wStart = addDays(wStart, 7)
+    wStart = addDaysChina(wStart, 7)
   }
   if (weekHeaders.length === 0) return null
 
@@ -455,7 +558,7 @@ const timelineWeekStrip = computed(() => {
   const { laidOut, trackCount } = buildLaidOutForPeriod(stripStart, stripEnd, props.tasks)
   let todayLinePct = null
   if (today >= stripStart && today <= stripEnd) {
-    todayLinePct = (dayOffsetFrom(stripStart, today) / totalDays) * 100
+    todayLinePct = (dayOffsetFromChina(stripStart, today) / totalDays) * 100
   }
   return {
     weekHeaders,
@@ -473,46 +576,42 @@ const timelineMonthPages = computed(() => {
   const { min, max } = taskDateBounds.value
   if (!min || !max) return []
 
-  const today = startOfDay(new Date())
-  const padDaysBefore = 120
-  const padDaysAfter = 120
-  const rangeMin = addDays(min, -padDaysBefore)
-  const rangeMax = addDays(max, padDaysAfter)
+  const today = parseYmdChina(chinaTodayYmd())
+  const rangeMin = addDaysChina(min, -monthExtraDaysBefore.value)
+  const rangeMax = addDaysChina(max, monthExtraDaysAfter.value)
 
   const list = []
-  let mStart = startOfMonth(rangeMin)
-  const endLimit = startOfMonth(rangeMax)
+  let mStart = startOfMonthChina(rangeMin)
+  const endLimit = startOfMonthChina(rangeMax)
   while (mStart <= endLimit) {
-    const mEnd = endOfMonthFor(mStart)
+    const mEnd = endOfMonthChina(mStart)
     const days = daysInPeriodInclusive(mStart, mEnd)
     const columns = []
     for (let i = 0; i < days; i++) {
-      const d = addDays(mStart, i)
+      const d = addDaysChina(mStart, i)
       columns.push({
-        datePart: formatMdSlashFromDate(d),
-        weekdayPart: CHINESE_WDAY[d.getDay()],
-        isToday: d.getTime() === today.getTime(),
+        datePart: formatMdSlashChina(d),
+        weekdayPart: chinaWeekdayZhShort(d),
+        isToday: formatYmdChina(d) === chinaTodayYmd(),
       })
     }
-    const y = mStart.getFullYear()
-    const mo = mStart.getMonth() + 1
     const { laidOut, trackCount } = buildLaidOutForMonthPageMerged(mStart, mEnd, props.tasks)
     let todayLinePct = null
     if (today >= mStart && today <= mEnd) {
-      todayLinePct = (dayOffsetFrom(mStart, today) / days) * 100
+      todayLinePct = (dayOffsetFromChina(mStart, today) / days) * 100
     }
     list.push({
-      snapKey: `m-${y}-${mo}`,
+      snapKey: `m-${formatYmdChina(mStart).slice(0, 7)}`,
       start: mStart,
       end: mEnd,
       days,
-      titleLabel: `${y}年${mo}月`,
+      titleLabel: formatYearMonthTitleChina(mStart),
       columns,
       todayLinePct,
       laidOut,
       swimlaneHeightPx: Math.max(160, trackCount * TASK_TRACK_ROW_PX + TASK_SWIMLANE_PAD_PX * 2),
     })
-    mStart = addDays(endOfMonthFor(mStart), 1)
+    mStart = addDaysChina(endOfMonthChina(mStart), 1)
   }
   return list
 })
@@ -521,34 +620,59 @@ function lerp(a, b, t) {
   return a + (b - a) * t
 }
 
-function incompleteStartCloseness(task) {
-  if (task?.status !== 'pending' || !task?.startDate) return 0
-  const today = startOfDay(new Date())
-  const start = parseYmdLocal(task.startDate)
-  const daysUntil = dayOffsetFrom(today, start)
-  if (daysUntil > 21) return 0
-  if (daysUntil <= 0) return 1
-  return 1 - daysUntil / 21
-}
-
+/** 未开始：边框 + 背景随「距开始日远近」同向渐变（颜色在首次展示时冻结） */
 function timelineIncompleteBorderStyle(task) {
   if (task.status !== 'pending') return {}
-  const c = incompleteStartCloseness(task)
+  const c = getFrozenPendingStartCloseness(task)
+  if (c == null) return {}
+  const t = Math.min(1, Math.max(0, c))
+  // 边框：越远越淡、越近越深
+  const sat = Math.round(lerp(14, 96, t))
+  const light = Math.round(lerp(94, 20, t))
+  // 背景：同色相、略低饱和度、整体更亮，保证正文可读；近开始日蓝调更明显
+  const satBg = Math.round(lerp(8, 72, t))
+  const lightBg = Math.round(lerp(98, 72, t))
   return {
-    borderColor: `hsl(217, ${Math.round(lerp(30, 78, c))}%, ${Math.round(lerp(88, 34, c))}%)`,
+    borderColor: `hsl(217, ${sat}%, ${light}%)`,
+    backgroundColor: `hsl(217, ${satBg}%, ${lightBg}%)`,
+  }
+}
+
+function growWeekStripUntilTodayVisible(today) {
+  for (let i = 0; i < 48; i++) {
+    const strip = timelineWeekStrip.value
+    if (!strip) return
+    if (today >= strip.stripStart && today <= strip.stripEnd) return
+    if (today < strip.stripStart) weekExtraDaysBefore.value += WEEK_SCROLL_EXTEND_DAYS
+    else weekExtraDaysAfter.value += WEEK_SCROLL_EXTEND_DAYS
+  }
+}
+
+function growMonthPagesUntilTodayVisible(today) {
+  for (let i = 0; i < 48; i++) {
+    const arr = timelineMonthPages.value
+    if (!arr.length) return
+    const idx = arr.findIndex((p) => today >= p.start && today <= p.end)
+    if (idx >= 0) return
+    const first = arr[0]
+    const last = arr[arr.length - 1]
+    if (today < first.start) monthExtraDaysBefore.value += MONTH_SCROLL_EXTEND_DAYS
+    else if (today > last.end) monthExtraDaysAfter.value += MONTH_SCROLL_EXTEND_DAYS
+    else return
   }
 }
 
 function scrollTimelineToTodayPeriod() {
   const el = timelineScrollRef.value
   if (!el) return
-  const today = startOfDay(new Date())
+  const today = parseYmdChina(chinaTodayYmd())
 
   if (range.value === '周') {
+    growWeekStripUntilTodayVisible(today)
     const strip = timelineWeekStrip.value
     if (!strip) return
     if (today < strip.stripStart || today > strip.stripEnd) return
-    const dayIdx = dayOffsetFrom(strip.stripStart, today)
+    const dayIdx = dayOffsetFromChina(strip.stripStart, today)
     const todayPx = (dayIdx / strip.totalDays) * strip.totalWidthPx
     const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth)
     const target = todayPx - el.clientWidth / 2
@@ -556,40 +680,75 @@ function scrollTimelineToTodayPeriod() {
     return
   }
 
+  growMonthPagesUntilTodayVisible(today)
   const arr = timelineMonthPages.value
   if (!arr.length) return
   const idx = arr.findIndex((p) => today >= p.start && today <= p.end)
   if (idx < 0) return
   const child = el.children[idx]
   if (!child) return
-  el.scrollLeft = child.offsetLeft
+  const period = arr[idx]
+  const w = child.offsetWidth
+  const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth)
+  let centerX = w * 0.5
+  if (period.todayLinePct != null) {
+    centerX = (period.todayLinePct / 100) * w
+  }
+  const target = child.offsetLeft + centerX - el.clientWidth / 2
+  el.scrollLeft = Math.max(0, Math.min(target, maxLeft))
 }
 
 watch(range, async () => {
+  resetTimelineScrollPaddings()
   await nextTick()
   scrollTimelineToTodayPeriod()
+  await ensureTimelineHorizontallyScrollable()
 })
+
+watch(
+  () => props.recenterAt,
+  async (n, prev) => {
+    if (n === prev) return
+    clearFrozenPendingColors()
+    resetTimelineScrollPaddings()
+    await nextTick()
+    await ensureTimelineHorizontallyScrollable()
+    await nextTick()
+    scrollTimelineToTodayPeriod()
+    await nextTick()
+    scrollTimelineToTodayPeriod()
+  },
+)
 
 watch(
   () => props.tasks,
   async () => {
+    resetTimelineScrollPaddings()
     await nextTick()
     scrollTimelineToTodayPeriod()
+    await ensureTimelineHorizontallyScrollable()
   },
   { deep: true },
 )
 
 onMounted(() => {
-  nextTick(() => {
+  nextTick(async () => {
     scrollTimelineToTodayPeriod()
+    await ensureTimelineHorizontallyScrollable()
     const el = timelineScrollRef.value
-    if (el) el.addEventListener('wheel', onTimelineWheel, { passive: false })
+    if (el) {
+      el.addEventListener('wheel', onTimelineWheel, { passive: false })
+      el.addEventListener('scroll', onTimelineScroll, { passive: true })
+    }
   })
 })
 
 onBeforeUnmount(() => {
   const el = timelineScrollRef.value
-  if (el) el.removeEventListener('wheel', onTimelineWheel)
+  if (el) {
+    el.removeEventListener('wheel', onTimelineWheel)
+    el.removeEventListener('scroll', onTimelineScroll)
+  }
 })
 </script>
 

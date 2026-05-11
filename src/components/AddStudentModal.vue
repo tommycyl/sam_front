@@ -214,6 +214,7 @@ import {
   fetchStudentTemplateSelectOptions,
   getStudentTemplateSelectOptions,
 } from '@/utils/studentTaskTemplates'
+import { chinaTodayYmd, formatYmdChina, parseYmdChina } from '@/utils/chinaTime'
 import { showMessage } from '@/utils/request'
 
 const props = defineProps({
@@ -222,8 +223,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:visible', 'submit'])
 
-const today = new Date()
-const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`
+const todayStr = chinaTodayYmd().replace(/-/g, '/')
 
 /** 接口未就绪时与列表 mock 负责人/MENTOR 大致对齐 */
 const FALLBACK_PM_OPTIONS = [
@@ -282,8 +282,9 @@ function isValidStartDate(s) {
   const t = String(s || '').trim().replace(/-/g, '/')
   if (!/^\d{4}\/\d{2}\/\d{2}$/.test(t)) return false
   const [y, mo, d] = t.split('/').map(Number)
-  const dt = new Date(y, mo - 1, d)
-  return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d
+  const ymd = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  const dt = parseYmdChina(ymd)
+  return formatYmdChina(dt) === ymd
 }
 
 function validateForm() {

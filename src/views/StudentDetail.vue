@@ -123,6 +123,7 @@
         :tasks="tasksForTimeline"
         subtitle-kind="teacher"
         :schedule-heading="studentTimelineScheduleTitle"
+        :recenter-at="timelineRecenterTick"
       />
       <TaskMonthGridCalendar v-else :tasks="tasksForTimeline" />
 
@@ -206,7 +207,6 @@
               <span
                 class="rounded px-2 py-0.5 text-xs font-medium"
                 :class="taskStatusBadgeClass(t)"
-                :style="taskStatusBadgeStyle(t)"
               >{{ taskStatusLabel(t.status) }}</span>
             </div>
             <div class="shrink-0 md:justify-self-end">
@@ -468,17 +468,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showMessage } from '@/utils/request'
 import TaskTimelinePanel from '@/components/TaskTimelinePanel.vue'
 import TaskMonthGridCalendar from '@/components/TaskMonthGridCalendar.vue'
 import {
   createStudentTask,
-  fetchStudentDetail,
+  reconcileStudentTaskDeadlines,
   updateTask,
 } from '@/api/student'
 import { fetchTeacherList } from '@/api/teacher'
+import { addDaysChina, chinaTodayYmd, formatYmdChina, parseYmdChina } from '@/utils/chinaTime'
 import { isLongTermFlag, normalizeTaskRow } from '@/utils/taskFlags'
 
 const router = useRouter()
@@ -503,6 +504,8 @@ const student = ref({
 
 const tasks = ref([])
 const teacherList = ref([])
+/** 递增后让时间表横向滚动以「今天」为中心（含 keep-alive 再次进入） */
+const timelineRecenterTick = ref(0)
 
 /** 时间表左侧竖栏：学生姓名 +「时间表」 */
 const studentTimelineScheduleTitle = computed(() => {
@@ -512,7 +515,7 @@ const studentTimelineScheduleTitle = computed(() => {
 
 async function loadDetail() {
   try {
-    const data = await fetchStudentDetail(props.id)
+    const data = await reconcileStudentTaskDeadlines(props.id)
     if (data) {
       student.value = {
         id: data.id,
@@ -528,6 +531,8 @@ async function loadDetail() {
   } catch {
     /* request 拦截器已弹错误 */
   }
+  await nextTick()
+  timelineRecenterTick.value++
 }
 
 async function loadTeachers() {
@@ -544,6 +549,11 @@ onMounted(async () => {
   await Promise.all([loadDetail(), loadTeachers()])
 })
 
+onActivated(async () => {
+  await nextTick()
+  timelineRecenterTick.value++
+})
+
 watch(() => props.id, () => {
   loadDetail()
 })
@@ -555,34 +565,8 @@ function formatMdSlashFromYmd(ymd) {
   return `${p[1].padStart(2, '0')}/${p[2].padStart(2, '0')}`
 }
 
-function startOfDay(d) {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
-}
-
-function parseYmdLocal(ymd) {
-  const [y, m, d] = String(ymd).split('-').map(Number)
-  return startOfDay(new Date(y, m - 1, d))
-}
-
-function formatYmdLocalDate(d) {
-  const x = startOfDay(d)
-  const y = x.getFullYear()
-  const mo = String(x.getMonth() + 1).padStart(2, '0')
-  const day = String(x.getDate()).padStart(2, '0')
-  return `${y}-${mo}-${day}`
-}
-
-function todayYmd() {
-  return formatYmdLocalDate(new Date())
-}
-
 function addDaysYmd(ymd, n) {
-  const base = parseYmdLocal(ymd)
-  const x = new Date(base)
-  x.setDate(x.getDate() + n)
-  return formatYmdLocalDate(x)
+  return formatYmdChina(addDaysChina(parseYmdChina(ymd), n))
 }
 
 function taskVisualsForStatus(status) {
@@ -605,10 +589,6 @@ function taskVisualsForStatus(status) {
     dotColor: 'bg-[#2196F3]',
     barClass: 'border-[#2196F3] bg-[#2196F3]/10 text-[#2196F3]',
   }
-}
-
-function dayOffsetFrom(a, b) {
-  return Math.round((startOfDay(b) - startOfDay(a)) / 86400000)
 }
 
 function isLongTermTask(t) {
@@ -673,48 +653,12 @@ function taskStatusLabel(s) {
   }[s] || s
 }
 
-/** 仅「未开始」：距开始日越近越大（0~1），用于渐变深浅 */
-function incompleteStartCloseness(task) {
-  if (task?.status !== 'pending' || !task?.startDate) return 0
-  const today = startOfDay(new Date())
-  const start = parseYmdLocal(task.startDate)
-  const daysUntil = dayOffsetFrom(today, start)
-  if (daysUntil > 21) return 0
-  if (daysUntil <= 0) return 1
-  return 1 - daysUntil / 21
-}
-
-function lerp(a, b, t) {
-  return a + (b - a) * t
-}
-
-/** 「未开始」徽标：越接近开始日背景与字色越深 */
-function incompleteBadgeStyleFromCloseness(c) {
-  const t = Math.min(1, Math.max(0, c))
-  const bg = `hsl(${lerp(214, 220, t)}, ${lerp(32, 86, t)}%, ${lerp(94, 40, t)}%)`
-  const fg = `hsl(218, ${lerp(16, 92, t)}%, ${lerp(38, 99, t)}%)`
-  const br = `hsl(217, ${lerp(28, 72, t)}%, ${lerp(86, 30, t)}%)`
-  return {
-    backgroundColor: bg,
-    color: fg,
-    borderColor: br,
-    borderWidth: '1px',
-    borderStyle: 'solid',
-  }
-}
-
 function taskStatusBadgeClass(task) {
   const s = task.status
   if (s === 'completed') return 'bg-green-100 text-green-700'
   if (s === 'delayed') return 'border border-[#fde047] bg-[#fef9c3] text-[#854d0e]'
   if (s === 'in_progress') return 'border border-[#2563eb] bg-[#bfdbfe] text-[#1d4ed8]'
-  if (s === 'pending') return ''
   return 'border border-outline-variant bg-surface-container-high text-on-surface-variant'
-}
-
-function taskStatusBadgeStyle(task) {
-  if (task.status !== 'pending') return {}
-  return incompleteBadgeStyleFromCloseness(incompleteStartCloseness(task))
 }
 
 const statusOptions = [
@@ -843,7 +787,7 @@ function openAddTaskModal() {
   editingTask.value = null
   newTitle.value = ''
   newStatus.value = 'pending'
-  const t0 = todayYmd()
+  const t0 = chinaTodayYmd()
   newStartDate.value = t0
   newEndDate.value = addDaysYmd(t0, 7)
   newTeacher.value = ''

@@ -8,6 +8,11 @@ export function fetchStudentDetail(id) {
   return get(`/students/${id}`)
 }
 
+/** 进入学生详情时：按截止日期将超时未完成任务标为延期，并返回最新详情（与 GET /students/:id 结构一致） */
+export function reconcileStudentTaskDeadlines(id) {
+  return post(`/students/${id}/reconcile-task-deadlines`)
+}
+
 export function createStudent(data) {
   return post('/students', data)
 }

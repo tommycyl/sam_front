@@ -100,12 +100,24 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import {
+  addDaysChina,
+  chinaGetDaySun0,
+  chinaTodayFirstOfMonthDate,
+  chinaTodayYmd,
+  dayOffsetFromChina,
+  endOfMonthChina,
+  formatYearMonthTitleChina,
+  formatYmdChina,
+  parseYmdChina,
+  shiftMonthYmd,
+} from '@/utils/chinaTime'
 
 const props = defineProps({
   tasks: { type: Array, default: () => [] },
 })
 
-const monthCursor = ref(startOfMonthDate(new Date()))
+const monthCursor = ref(chinaTodayFirstOfMonthDate())
 const weekLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 const BAR_H = 18
@@ -116,46 +128,15 @@ const DATE_STRIP_PX = 40
 /** 无任务或任务很少时，每周任务区仍保留的最小高度，略拉高月历整体 */
 const MIN_WEEK_BODY_PX = 48
 
-function startOfMonthDate(d) {
-  const x = new Date(d)
-  x.setHours(12, 0, 0, 0)
-  x.setDate(1)
-  return x
-}
-
-function pad2(n) {
-  return String(n).padStart(2, '0')
-}
-
-function formatYmd(d) {
-  const x = new Date(d)
-  x.setHours(12, 0, 0, 0)
-  return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`
-}
-
-function parseYmd(ymd) {
-  const [y, m, d] = String(ymd).split('-').map(Number)
-  if (!y || !m || !d) return null
-  return new Date(y, m - 1, d, 12, 0, 0, 0)
-}
-
-function todayYmd() {
-  return formatYmd(new Date())
-}
-
 function dayIndexFrom(a, b) {
-  return Math.round((b.getTime() - a.getTime()) / 86400000)
+  return dayOffsetFromChina(a, b)
 }
 
-const titleYmd = computed(() => {
-  const x = monthCursor.value
-  return `${x.getFullYear()}年${x.getMonth() + 1}月`
-})
+const titleYmd = computed(() => formatYearMonthTitleChina(monthCursor.value))
 
 function shiftMonth(delta) {
-  const x = new Date(monthCursor.value)
-  x.setMonth(x.getMonth() + delta)
-  monthCursor.value = startOfMonthDate(x)
+  const ymd = formatYmdChina(monthCursor.value)
+  monthCursor.value = parseYmdChina(shiftMonthYmd(ymd, delta))
 }
 
 /** 占满列宽，不在列与列之间留缝，视觉上连成一条 */
@@ -201,26 +182,27 @@ function assignLanes(segments) {
 }
 
 const calendarWeeks = computed(() => {
-  const anchor = monthCursor.value
-  const y = anchor.getFullYear()
-  const m0 = anchor.getMonth()
-  const first = new Date(y, m0, 1, 12, 0, 0, 0)
-  const lead = first.getDay()
-  const lastDay = new Date(y, m0 + 1, 0, 12, 0, 0, 0).getDate()
-  const gridStart = new Date(y, m0, 1 - lead, 12, 0, 0, 0)
+  const anchorYmd = formatYmdChina(monthCursor.value)
+  const y = Number(anchorYmd.slice(0, 4))
+  const viewMonth = Number(anchorYmd.slice(5, 7))
+  const first = parseYmdChina(`${String(y).padStart(4, '0')}-${String(viewMonth).padStart(2, '0')}-01`)
+  const lead = chinaGetDaySun0(first)
+  const lastDayYmd = formatYmdChina(endOfMonthChina(first))
+  const lastDay = Number(lastDayYmd.slice(8, 10))
+  const gridStart = addDaysChina(first, -lead)
   const totalDays = Math.ceil((lead + lastDay) / 7) * 7
-  const today = todayYmd()
+  const today = chinaTodayYmd()
 
   const tasksPrepared = props.tasks
     .map((t) => ({
       raw: t,
-      s: parseYmd(t.startDate),
-      e: parseYmd(t.endDate),
+      s: parseYmdChina(t.startDate),
+      e: parseYmdChina(t.endDate),
       id: t.id ?? t.title,
       title: String(t.title || '任务'),
       barClass: t.barClass || 'border-outline-variant bg-surface-container-high text-on-surface',
     }))
-    .filter((x) => x.s && x.e && x.e >= x.s)
+    .filter((x) => x.s && x.e && !Number.isNaN(x.s.getTime()) && !Number.isNaN(x.e.getTime()) && x.e >= x.s)
 
   const weeks = []
   const numWeeks = totalDays / 7
@@ -229,20 +211,20 @@ const calendarWeeks = computed(() => {
     const cells = []
     for (let d = 0; d < 7; d++) {
       const i = w * 7 + d
-      const dd = new Date(gridStart)
-      dd.setDate(gridStart.getDate() + i)
+      const dd = addDaysChina(gridStart, i)
+      const ddYmd = formatYmdChina(dd)
+      const cellMonth = Number(ddYmd.slice(5, 7))
+      const cellDay = Number(ddYmd.slice(8, 10))
       cells.push({
-        dayNum: dd.getDate(),
-        inMonth: dd.getMonth() === m0,
-        isToday: formatYmd(dd) === today,
-        cornerLeft: dd.getMonth() !== m0 ? `${dd.getMonth() + 1}/${dd.getDate()}` : '',
+        dayNum: cellDay,
+        inMonth: cellMonth === viewMonth,
+        isToday: ddYmd === today,
+        cornerLeft: cellMonth !== viewMonth ? `${cellMonth}/${cellDay}` : '',
       })
     }
 
-    const weekStart = new Date(gridStart)
-    weekStart.setDate(gridStart.getDate() + w * 7)
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekStart.getDate() + 6)
+    const weekStart = addDaysChina(gridStart, w * 7)
+    const weekEnd = addDaysChina(weekStart, 6)
 
     const segments = []
     for (const t of tasksPrepared) {
