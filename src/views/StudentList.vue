@@ -31,7 +31,7 @@
     <!-- Filters -->
     <div class="mb-stack-gap rounded-xl border border-surface-variant bg-surface-container-lowest p-6 shadow-sm">
       <div class="flex flex-col gap-grid-gutter lg:flex-row lg:items-end lg:gap-grid-gutter">
-        <div class="grid min-w-0 flex-1 grid-cols-1 gap-grid-gutter md:grid-cols-2 lg:grid-cols-4">
+        <div class="grid min-w-0 flex-1 grid-cols-1 gap-grid-gutter md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <div class="relative">
             <span
               class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant"
@@ -58,6 +58,14 @@
           >
             <option value="">全部 Mentor</option>
             <option v-for="m in mentorOptions" :key="m" :value="m">{{ m }}</option>
+          </select>
+          <select
+            v-model="filters.midPlatform"
+            class="w-full appearance-none rounded-lg border border-outline-variant bg-surface-container-lowest bg-no-repeat px-4 py-2 text-body-base text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            :style="selectArrow"
+          >
+            <option value="">全部中台</option>
+            <option v-for="mp in midPlatformOptions" :key="mp" :value="mp">{{ mp }}</option>
           </select>
           <select
             v-model="filters.risk"
@@ -437,7 +445,7 @@ const selectArrow = {
   backgroundSize: '1.5em 1.5em',
 }
 
-const filters = ref({ keyword: '', owner: '', mentor: '', risk: '' })
+const filters = ref({ keyword: '', owner: '', mentor: '', midPlatform: '', risk: '' })
 
 /** 后端未就绪时的示例任务，需与下方 rows[].taskKeys 的 id 对齐 */
 const FALLBACK_TASK_OPTIONS = [
@@ -469,6 +477,19 @@ onMounted(loadStudents)
 const ownerOptions = computed(() => [...new Set(rows.value.map((r) => r.owner))])
 const mentorOptions = computed(() => [...new Set(rows.value.map((r) => r.mentor))])
 
+/** 中台老师姓名（与列表列一致）；排除占位「—」与空值 */
+const midPlatformOptions = computed(() => {
+  const set = new Set()
+  for (const r of rows.value) {
+    const n = r.midPlatform
+    if (n == null) continue
+    const s = String(n).trim()
+    if (!s || s === '—') continue
+    set.add(s)
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+})
+
 const MAX_TASK_FILTER = 3
 
 const appliedTaskIds = ref([])
@@ -491,6 +512,10 @@ const baseFiltered = computed(() =>
     }
     if (filters.value.owner && r.owner !== filters.value.owner) return false
     if (filters.value.mentor && r.mentor !== filters.value.mentor) return false
+    if (filters.value.midPlatform) {
+      const rowMp = r.midPlatform == null ? '' : String(r.midPlatform).trim()
+      if (rowMp !== filters.value.midPlatform) return false
+    }
     if (filters.value.risk && r.risk !== filters.value.risk) return false
     return true
   }),
@@ -505,6 +530,10 @@ const filtered = computed(() =>
     }
     if (filters.value.owner && r.owner !== filters.value.owner) return false
     if (filters.value.mentor && r.mentor !== filters.value.mentor) return false
+    if (filters.value.midPlatform) {
+      const rowMp = r.midPlatform == null ? '' : String(r.midPlatform).trim()
+      if (rowMp !== filters.value.midPlatform) return false
+    }
     if (filters.value.risk && r.risk !== filters.value.risk) return false
     if (appliedTaskIds.value.length) {
       const keys = r.taskKeys || []
