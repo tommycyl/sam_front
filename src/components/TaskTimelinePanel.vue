@@ -1,5 +1,5 @@
 <template>
-  <!-- 任务时间表：周为连续条带；月为一页一月 + 日内分列，横滑无吸附，同一时段可纵向堆叠多条 -->
+  <!-- 任务时间表：周为一页七天（一格一天）；月为一页一月 + 日内分列，横滑无吸附，同一时段可纵向堆叠多条 -->
   <section class="flex flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-variant px-4 py-3">
       <span
@@ -7,7 +7,7 @@
         class="min-w-0 flex-1 text-base font-black leading-snug text-primary"
       >{{ scheduleHeadingTrimmed }}</span>
       <span v-else class="min-w-0 flex-1 text-xs text-on-surface-variant">
-        鼠标拖拽或滚轮可横向移动；周为连续多周一条泳道；月视图一页一个月，横向自由滚动换月（无吸附）
+        鼠标拖拽或滚轮可横向移动；周视图每页七天、一格一天；月视图一页一个月，横向自由滚动换月（无吸附）
       </span>
       <div class="flex shrink-0 overflow-hidden rounded border border-outline-variant bg-surface-container-lowest">
         <button
@@ -45,81 +45,86 @@
         @pointerup="onTimelinePointerUp"
         @pointercancel="onTimelinePointerUp"
       >
-        <!-- 周：表头每周一格，泳道一条横跨多周（任务不重复） -->
-        <div
-          v-if="range === '周' && timelineWeekStrip"
-          class="timeline-week-strip flex shrink-0 flex-col"
-          :style="{ width: timelineWeekStrip.totalWidthPx + 'px' }"
-        >
-          <div class="flex h-11 shrink-0 border-b border-surface-variant bg-surface-container-low/40">
-            <div
-              v-for="col in timelineWeekStrip.weekHeaders"
-              :key="col.snapKey"
-              class="flex shrink-0 items-center justify-center border-r border-surface-variant px-2 text-center text-xs last:border-r-0"
-              :style="{ width: col.widthPx + 'px' }"
-              :class="
-                col.containsToday
-                  ? 'bg-secondary/10 font-semibold text-secondary'
-                  : 'font-medium text-on-surface'
-              "
-            >
-              {{ col.titleLabel }}
-            </div>
-          </div>
+        <!-- 周：一页一周（占满可视宽度），七列、一格一天 -->
+        <template v-if="range === '周'">
           <div
-            class="relative border-b border-surface-variant bg-surface-container-lowest/40"
-            :style="{
-              height: timelineWeekStrip.swimlaneHeightPx + 'px',
-              backgroundImage: 'linear-gradient(to right, #e0e3e5 1px, transparent 1px)',
-              backgroundSize: WEEK_COLUMN_WIDTH_PX + 'px 100%',
-            }"
+            v-for="(period, pi) in timelineWeekPages"
+            :key="period.snapKey"
+            class="timeline-week-page flex w-full min-w-full shrink-0 flex-col border-r border-surface-variant last:border-r-0"
           >
             <div
-              v-if="timelineWeekStrip.todayLinePct !== null"
-              class="pointer-events-none absolute bottom-0 top-0 z-[8] w-px bg-secondary"
-              :style="{ left: timelineWeekStrip.todayLinePct + '%', transform: 'translateX(-50%)' }"
+              class="border-b border-surface-variant bg-surface-container-low/40 py-2 text-center text-sm font-semibold text-on-surface"
             >
-              <span
-                class="absolute -top-0.5 left-1/2 z-[9] -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-1 py-0.5 text-[10px] text-white"
-              >今</span>
+              {{ period.titleLabel }}
             </div>
             <div
-              v-for="item in timelineWeekStrip.laidOut"
-              :key="item.key"
-              class="timeline-task-card absolute z-10 box-border rounded-lg border-2 px-2 py-1.5 text-left shadow-sm"
-              :class="[
-                item.task.barClass,
-                item.task.status === 'delayed' ? 'ring-1 ring-error/40' : '',
-              ]"
+              class="flex min-h-14 shrink-0 border-b border-surface-variant bg-surface-container-low/50 py-1 text-[11px] font-medium text-on-surface-variant"
+            >
+              <div
+                v-for="(c, ci) in period.columns"
+                :key="ci"
+                class="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 border-r border-surface-variant px-0.5 text-center leading-none last:border-r-0"
+                :class="c.isToday ? 'bg-secondary/15 text-secondary font-semibold' : ''"
+              >
+                <span class="whitespace-nowrap">{{ c.datePart }}</span>
+                <span class="whitespace-nowrap">{{ c.weekdayPart }}</span>
+              </div>
+            </div>
+            <div
+              class="relative border-b border-surface-variant bg-surface-container-lowest/40"
               :style="{
-                left: `calc(${item.leftPct}% + 2px)`,
-                width: `calc(${item.widthPct}% - 4px)`,
-                top: item.topPx + 'px',
-                minHeight: taskCardMinHeightPx + 'px',
-                ...timelineIncompleteBorderStyle(item.task),
+                height: period.swimlaneHeightPx + 'px',
+                backgroundImage: 'linear-gradient(to right, #e0e3e5 1px, transparent 1px)',
+                backgroundSize: `calc(100% / ${period.days}) 100%`,
               }"
             >
-              <div class="flex items-start gap-1.5">
-                <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full" :class="item.task.dotColor"></span>
-                <div class="min-w-0 flex-1">
-                  <div
-                    class="text-xs font-bold leading-snug text-current break-words"
-                    :class="item.task.status === 'delayed' ? 'text-error' : ''"
-                  >
-                    {{ item.task.title }}
-                  </div>
-                  <div class="mt-1 text-[11px] leading-snug text-on-surface-variant break-words">
-                    {{ formatMdSlashFromYmd(item.task.startDate) }} ~ {{ formatMdSlashFromYmd(item.task.endDate) }}
-                  </div>
-                  <div class="mt-0.5 text-[11px] leading-snug text-on-surface-variant break-words">
-                    <template v-if="subtitleKind === 'teacher'">任务老师：{{ item.task.teacher || '—' }}</template>
-                    <template v-else>学生：{{ item.task.student || '—' }}</template>
+              <div
+                v-if="period.todayLinePct !== null"
+                class="pointer-events-none absolute bottom-0 top-0 z-[8] w-px bg-secondary"
+                :style="{ left: period.todayLinePct + '%', transform: 'translateX(-50%)' }"
+              >
+                <span
+                  class="absolute -top-0.5 left-1/2 z-[9] -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-1 py-0.5 text-[10px] text-white"
+                >今</span>
+              </div>
+              <div
+                v-for="item in period.laidOut"
+                :key="item.key + '-' + pi"
+                class="timeline-task-card absolute z-10 box-border rounded-lg border-2 px-2 py-1.5 text-left shadow-sm"
+                :class="[
+                  item.task.barClass,
+                  item.task.status === 'delayed' ? 'ring-1 ring-error/40' : '',
+                ]"
+                :style="{
+                  left: `calc(${item.leftPct}% + 2px)`,
+                  width: `calc(${item.widthPct}% - 4px)`,
+                  top: item.topPx + 'px',
+                  minHeight: taskCardMinHeightPx + 'px',
+                  ...timelineIncompleteBorderStyle(item.task),
+                }"
+              >
+                <div class="flex items-start gap-1.5">
+                  <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full" :class="item.task.dotColor"></span>
+                  <div class="min-w-0 flex-1">
+                    <div
+                      class="text-xs font-bold leading-snug text-current break-words"
+                      :class="item.task.status === 'delayed' ? 'text-error' : ''"
+                    >
+                      {{ item.task.title }}
+                    </div>
+                    <div class="mt-1 text-[11px] leading-snug text-on-surface-variant break-words">
+                      {{ formatMdSlashFromYmd(item.task.startDate) }} ~ {{ formatMdSlashFromYmd(item.task.endDate) }}
+                    </div>
+                    <div class="mt-0.5 text-[11px] leading-snug text-on-surface-variant break-words">
+                      <template v-if="subtitleKind === 'teacher'">任务老师：{{ item.task.teacher || '—' }}</template>
+                      <template v-else>学生：{{ item.task.student || '—' }}</template>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </template>
 
         <!-- 月：一页一个月（占满可视宽度），月内按日分列放大 -->
         <template v-else-if="range === '月'">
@@ -240,7 +245,6 @@ const range = defineModel('range', { type: String, default: '周' })
 const TASK_TRACK_ROW_PX = 80
 const TASK_SWIMLANE_PAD_PX = 10
 const taskCardMinHeightPx = 72
-const WEEK_COLUMN_WIDTH_PX = 200
 /** 时间轴左右可继续延伸：靠近边缘时追加的日历长度 */
 const WEEK_PAD_INITIAL_DAYS = 56
 const MONTH_PAD_INITIAL_DAYS = 120
@@ -362,7 +366,7 @@ function onTimelineScrollExtend() {
   if (!el) return
 
   if (range.value === '周') {
-    if (!timelineWeekStrip.value) return
+    if (!timelineWeekPages.value.length) return
     if (el.scrollWidth <= el.clientWidth + 2) {
       weekExtraDaysBefore.value += WEEK_SCROLL_EXTEND_DAYS
       weekExtraDaysAfter.value += WEEK_SCROLL_EXTEND_DAYS
@@ -526,50 +530,48 @@ const taskDateBounds = computed(() => {
   return { min, max }
 })
 
-const timelineWeekStrip = computed(() => {
+const timelineWeekPages = computed(() => {
   const { min, max } = taskDateBounds.value
-  if (!min || !max) return null
+  if (!min || !max) return []
 
   const today = parseYmdChina(chinaTodayYmd())
   const rangeMin = addDaysChina(min, -weekExtraDaysBefore.value)
   const rangeMax = addDaysChina(max, weekExtraDaysAfter.value)
 
-  const weekHeaders = []
+  const list = []
   let wStart = startOfWeekMondayChina(rangeMin)
-  const limit = startOfWeekMondayChina(rangeMax)
-  while (wStart <= limit) {
+  const endLimit = startOfWeekMondayChina(rangeMax)
+  while (wStart <= endLimit) {
     const wEnd = addDaysChina(wStart, 6)
-    weekHeaders.push({
+    const days = daysInPeriodInclusive(wStart, wEnd)
+    const columns = []
+    for (let i = 0; i < days; i++) {
+      const d = addDaysChina(wStart, i)
+      columns.push({
+        datePart: formatMdSlashChina(d),
+        weekdayPart: chinaWeekdayZhShort(d),
+        isToday: formatYmdChina(d) === chinaTodayYmd(),
+      })
+    }
+    const { laidOut, trackCount } = buildLaidOutForPeriod(wStart, wEnd, props.tasks)
+    let todayLinePct = null
+    if (today >= wStart && today <= wEnd) {
+      todayLinePct = (dayOffsetFromChina(wStart, today) / days) * 100
+    }
+    list.push({
       snapKey: `w-${formatYmdChina(wStart)}`,
       start: wStart,
       end: wEnd,
-      widthPx: WEEK_COLUMN_WIDTH_PX,
+      days,
       titleLabel: `${formatMdSlashChina(wStart)} — ${formatMdSlashChina(wEnd)}`,
-      containsToday: today >= wStart && today <= wEnd,
+      columns,
+      todayLinePct,
+      laidOut,
+      swimlaneHeightPx: Math.max(160, trackCount * TASK_TRACK_ROW_PX + TASK_SWIMLANE_PAD_PX * 2),
     })
     wStart = addDaysChina(wStart, 7)
   }
-  if (weekHeaders.length === 0) return null
-
-  const stripStart = weekHeaders[0].start
-  const stripEnd = weekHeaders[weekHeaders.length - 1].end
-  const totalDays = daysInPeriodInclusive(stripStart, stripEnd)
-  const totalWidthPx = weekHeaders.length * WEEK_COLUMN_WIDTH_PX
-  const { laidOut, trackCount } = buildLaidOutForPeriod(stripStart, stripEnd, props.tasks)
-  let todayLinePct = null
-  if (today >= stripStart && today <= stripEnd) {
-    todayLinePct = (dayOffsetFromChina(stripStart, today) / totalDays) * 100
-  }
-  return {
-    weekHeaders,
-    stripStart,
-    stripEnd,
-    totalDays,
-    totalWidthPx,
-    laidOut,
-    swimlaneHeightPx: Math.max(120, trackCount * TASK_TRACK_ROW_PX + TASK_SWIMLANE_PAD_PX * 2),
-    todayLinePct,
-  }
+  return list
 })
 
 const timelineMonthPages = computed(() => {
@@ -638,13 +640,17 @@ function timelineIncompleteBorderStyle(task) {
   }
 }
 
-function growWeekStripUntilTodayVisible(today) {
+function growWeekPagesUntilTodayVisible(today) {
   for (let i = 0; i < 48; i++) {
-    const strip = timelineWeekStrip.value
-    if (!strip) return
-    if (today >= strip.stripStart && today <= strip.stripEnd) return
-    if (today < strip.stripStart) weekExtraDaysBefore.value += WEEK_SCROLL_EXTEND_DAYS
-    else weekExtraDaysAfter.value += WEEK_SCROLL_EXTEND_DAYS
+    const arr = timelineWeekPages.value
+    if (!arr.length) return
+    const idx = arr.findIndex((p) => today >= p.start && today <= p.end)
+    if (idx >= 0) return
+    const first = arr[0]
+    const last = arr[arr.length - 1]
+    if (today < first.start) weekExtraDaysBefore.value += WEEK_SCROLL_EXTEND_DAYS
+    else if (today > last.end) weekExtraDaysAfter.value += WEEK_SCROLL_EXTEND_DAYS
+    else return
   }
 }
 
@@ -668,14 +674,21 @@ function scrollTimelineToTodayPeriod() {
   const today = parseYmdChina(chinaTodayYmd())
 
   if (range.value === '周') {
-    growWeekStripUntilTodayVisible(today)
-    const strip = timelineWeekStrip.value
-    if (!strip) return
-    if (today < strip.stripStart || today > strip.stripEnd) return
-    const dayIdx = dayOffsetFromChina(strip.stripStart, today)
-    const todayPx = (dayIdx / strip.totalDays) * strip.totalWidthPx
+    growWeekPagesUntilTodayVisible(today)
+    const arr = timelineWeekPages.value
+    if (!arr.length) return
+    const idx = arr.findIndex((p) => today >= p.start && today <= p.end)
+    if (idx < 0) return
+    const child = el.children[idx]
+    if (!child) return
+    const period = arr[idx]
+    const w = child.offsetWidth
     const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth)
-    const target = todayPx - el.clientWidth / 2
+    let centerX = w * 0.5
+    if (period.todayLinePct != null) {
+      centerX = (period.todayLinePct / 100) * w
+    }
+    const target = child.offsetLeft + centerX - el.clientWidth / 2
     el.scrollLeft = Math.max(0, Math.min(target, maxLeft))
     return
   }
