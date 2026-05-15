@@ -63,25 +63,59 @@
         <!-- Pie chart: overall proportion -->
         <div class="flex flex-col items-center rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm lg:col-span-2">
           <h3 class="mb-6 self-start text-base font-bold text-on-surface">任务状态分布</h3>
-          <div class="relative">
-            <svg viewBox="0 0 200 200" class="h-48 w-48">
+          <div
+            ref="pieChartRef"
+            class="relative"
+            @mouseleave="onPieChartLeave"
+          >
+            <svg viewBox="0 0 200 200" class="pie-chart-svg h-48 w-48 overflow-visible">
+              <template v-if="overview.total">
+                <g
+                  v-for="slice in pieSlices"
+                  :key="slice.key"
+                  :style="{
+                    transform: pieHoveredKey === slice.key ? 'scale(1.09)' : 'scale(1)',
+                    transformBox: 'view-box',
+                    transformOrigin: '50% 50%',
+                    transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  }"
+                >
+                  <path
+                    :d="slice.path"
+                    :fill="slice.color"
+                    stroke="currentColor"
+                    class="text-surface-container-lowest"
+                    stroke-width="1.5"
+                    stroke-linejoin="round"
+                    @mouseenter="onPieSliceEnter(slice, $event)"
+                    @mousemove="onPieSliceMove($event)"
+                  />
+                </g>
+              </template>
               <circle
-                v-for="(seg, i) in pieSegments"
-                :key="i"
-                cx="100" cy="100" r="80"
+                v-else
+                cx="100"
+                cy="100"
+                r="80"
                 fill="none"
-                :stroke="seg.color"
+                stroke="#e0e3e5"
                 stroke-width="32"
-                :stroke-dasharray="seg.dashArray"
-                :stroke-dashoffset="seg.dashOffset"
-                :transform="`rotate(-90 100 100)`"
-                class="transition-all duration-700"
               />
-              <circle v-if="!overview.total" cx="100" cy="100" r="80" fill="none" stroke="#e0e3e5" stroke-width="32" />
             </svg>
-            <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <div
+              class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
+            >
               <span class="text-2xl font-bold text-on-surface tabular-nums">{{ overview.total }}</span>
               <span class="text-xs text-on-surface-variant">总任务</span>
+            </div>
+            <div
+              v-if="pieTooltip"
+              class="pointer-events-none absolute z-20 max-w-[200px] rounded-lg border border-outline-variant bg-inverse-surface px-3 py-2 text-inverse-on-surface shadow-modal"
+              :style="{ left: pieTooltip.left + 'px', top: pieTooltip.top + 'px' }"
+            >
+              <div class="text-xs font-semibold">{{ pieTooltip.label }}</div>
+              <div class="mt-0.5 text-sm font-bold tabular-nums">{{ pieTooltip.pctText }}</div>
+              <div class="mt-0.5 text-[11px] opacity-80">共 {{ pieTooltip.count }} 条</div>
             </div>
           </div>
           <div class="mt-5 grid w-full grid-cols-2 gap-x-4 gap-y-2">
@@ -161,6 +195,10 @@ const overview = ref({ total: 0, pending: 0, inProgress: 0, completed: 0, delaye
 const monthly = ref([])
 const urgent = ref([])
 
+const pieChartRef = ref(null)
+const pieHoveredKey = ref(null)
+const pieTooltip = ref(null)
+
 onMounted(async () => {
   try {
     const data = await fetchDashboardStats()
@@ -207,28 +245,87 @@ function formatMonth(ym) {
 }
 
 const PIE_COLORS = { pending: '#2196F3', inProgress: '#9C27B0', completed: '#4CAF50', delayed: '#E53935' }
-const PIE_CIRCUMFERENCE = 2 * Math.PI * 80
+const PIE_LABELS = { pending: '未开始', inProgress: '进行中', completed: '已完成', delayed: '逾期' }
 
-const pieSegments = computed(() => {
+/** 环形扇区路径：内半径 64、外半径 96（与原 stroke r=80、宽 32 一致），从顶部顺时针 */
+function donutSlicePath(cx, cy, rInner, rOuter, a0, a1) {
+  const largeArc = a1 - a0 > Math.PI ? 1 : 0
+  const xos = cx + rOuter * Math.cos(a0)
+  const yos = cy + rOuter * Math.sin(a0)
+  const xoe = cx + rOuter * Math.cos(a1)
+  const yoe = cy + rOuter * Math.sin(a1)
+  const xie = cx + rInner * Math.cos(a1)
+  const yie = cy + rInner * Math.sin(a1)
+  const xis = cx + rInner * Math.cos(a0)
+  const yis = cy + rInner * Math.sin(a0)
+  return `M ${xos} ${yos} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${xoe} ${yoe} L ${xie} ${yie} A ${rInner} ${rInner} 0 ${largeArc} 0 ${xis} ${yis} Z`
+}
+
+const pieSlices = computed(() => {
   const t = overview.value.total
   if (!t) return []
   const order = ['pending', 'inProgress', 'completed', 'delayed']
-  const segments = []
-  let offset = 0
+  const slices = []
+  let angle = -Math.PI / 2
   for (const key of order) {
     const val = overview.value[key] || 0
     if (val <= 0) continue
-    const pct = val / t
-    const len = pct * PIE_CIRCUMFERENCE
-    segments.push({
+    const sliceAngle = (val / t) * 2 * Math.PI
+    const a0 = angle
+    const a1 = angle + sliceAngle
+    const pct = (val / t) * 100
+    slices.push({
+      key,
+      label: PIE_LABELS[key] || key,
+      value: val,
       color: PIE_COLORS[key],
-      dashArray: `${len} ${PIE_CIRCUMFERENCE - len}`,
-      dashOffset: -offset,
+      pct,
+      pctText: `${pct.toFixed(1)}%`,
+      path: donutSlicePath(100, 100, 64, 96, a0, a1),
     })
-    offset += len
+    angle = a1
   }
-  return segments
+  return slices
 })
+
+function clampTooltipPosition(clientX, clientY) {
+  const wrap = pieChartRef.value
+  if (!wrap) return { left: 0, top: 0 }
+  const rect = wrap.getBoundingClientRect()
+  const pad = 12
+  const tw = 200
+  const th = 72
+  let left = clientX - rect.left + pad
+  let top = clientY - rect.top + pad
+  if (left + tw > rect.width) left = rect.width - tw - 8
+  if (top + th > rect.height) top = clientY - rect.top - th - 8
+  left = Math.max(8, left)
+  top = Math.max(8, top)
+  return { left, top }
+}
+
+function onPieSliceEnter(slice, evt) {
+  pieHoveredKey.value = slice.key
+  const { left, top } = clampTooltipPosition(evt.clientX, evt.clientY)
+  pieTooltip.value = {
+    label: slice.label,
+    pctText: slice.pctText,
+    count: slice.value,
+    left,
+    top,
+  }
+}
+
+function onPieSliceMove(evt) {
+  if (!pieTooltip.value) return
+  const { left, top } = clampTooltipPosition(evt.clientX, evt.clientY)
+  pieTooltip.value = { ...pieTooltip.value, left, top }
+}
+
+function onPieChartLeave() {
+  pieHoveredKey.value = null
+  pieTooltip.value = null
+}
 
 const pieLegend = computed(() => [
   { label: '未开始', color: PIE_COLORS.pending, value: overview.value.pending },
@@ -267,3 +364,9 @@ function daysLeftColor(d) {
   return 'text-on-surface-variant'
 }
 </script>
+
+<style scoped>
+.pie-chart-svg path {
+  cursor: pointer;
+}
+</style>
