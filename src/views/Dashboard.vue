@@ -135,8 +135,10 @@
       <!-- 3. Upcoming overdue tasks -->
       <div class="rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm">
         <h3 class="mb-4 text-base font-bold text-on-surface">近期延期风险任务</h3>
-        <p class="mb-4 text-xs text-on-surface-variant">展示截止日期在 7 天内且尚未完成的任务，最多 10 条</p>
-        <div v-if="urgent.length" class="overflow-x-auto">
+        <p class="mb-4 text-xs text-on-surface-variant">
+          展示截止日期在 7 天内且尚未完成的任务
+        </p>
+        <div v-if="urgentTotal > 0" class="overflow-x-auto">
           <table class="w-full text-left text-sm">
             <thead>
               <tr class="border-b border-surface-variant text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
@@ -149,7 +151,7 @@
             </thead>
             <tbody>
               <tr
-                v-for="t in urgent"
+                v-for="t in urgentList"
                 :key="t.id"
                 class="border-b border-surface-variant/60 transition-colors last:border-b-0 hover:bg-surface-container-low/40"
               >
@@ -178,7 +180,51 @@
             </tbody>
           </table>
         </div>
-        <div v-else class="flex flex-col items-center py-10 text-on-surface-variant">
+
+        <div
+          v-if="urgentTotal > URGENT_PAGE_SIZE"
+          class="flex flex-col gap-3 border-t border-surface-variant bg-surface-container-lowest px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+        >
+          <p class="text-body-sm text-on-surface-variant">
+            显示第 <span class="font-medium text-on-surface">{{ urgentRangeStart }}</span> 到
+            <span class="font-medium text-on-surface">{{ urgentRangeEnd }}</span> 条，共
+            <span class="font-medium text-on-surface">{{ urgentTotal }}</span> 条
+          </p>
+          <nav class="relative inline-flex -space-x-px rounded-md shadow-sm" aria-label="延期任务分页">
+            <button
+              type="button"
+              class="relative inline-flex items-center rounded-l-md border border-outline-variant bg-surface-container-lowest px-2 py-2 text-body-sm font-medium text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50"
+              :disabled="urgentPage <= 1"
+              @click="goUrgentPage(urgentPage - 1)"
+            >
+              <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+            </button>
+            <button
+              v-for="n in urgentPageList"
+              :key="n"
+              type="button"
+              class="relative inline-flex items-center border px-4 py-2 text-body-sm font-medium"
+              :class="
+                n === urgentPage
+                  ? 'z-10 border-primary bg-primary-fixed text-primary'
+                  : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low'
+              "
+              @click="goUrgentPage(n)"
+            >
+              {{ n }}
+            </button>
+            <button
+              type="button"
+              class="relative inline-flex items-center rounded-r-md border border-outline-variant bg-surface-container-lowest px-2 py-2 text-body-sm font-medium text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50"
+              :disabled="urgentPage >= urgentTotalPages"
+              @click="goUrgentPage(urgentPage + 1)"
+            >
+              <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
+          </nav>
+        </div>
+
+        <div v-if="urgentTotal === 0" class="flex flex-col items-center py-10 text-on-surface-variant">
           <span class="material-symbols-outlined mb-2 text-4xl opacity-40">check_circle</span>
           <p class="text-body-sm">暂无延期风险任务，一切顺利！</p>
         </div>
@@ -189,22 +235,70 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { fetchDashboardStats } from '@/api/dashboard'
+import { fetchDashboardStats, fetchDashboardUrgentTasks } from '@/api/dashboard'
+
+const URGENT_PAGE_SIZE = 10
 
 const overview = ref({ total: 0, pending: 0, inProgress: 0, completed: 0, delayed: 0 })
 const monthly = ref([])
-const urgent = ref([])
+const urgentList = ref([])
+const urgentTotal = ref(0)
+const urgentPage = ref(1)
+const urgentTotalPages = ref(0)
 
 const pieChartRef = ref(null)
 const pieHoveredKey = ref(null)
 const pieTooltip = ref(null)
 
+const urgentRangeStart = computed(() =>
+  urgentTotal.value === 0 ? 0 : (urgentPage.value - 1) * URGENT_PAGE_SIZE + 1,
+)
+const urgentRangeEnd = computed(() =>
+  Math.min(urgentPage.value * URGENT_PAGE_SIZE, urgentTotal.value),
+)
+
+/** 分页数字按钮窗口（至多 5 个） */
+const urgentPageList = computed(() => {
+  const total = urgentTotalPages.value
+  if (total <= 1) return []
+  const maxBtns = 5
+  let end = Math.min(total, urgentPage.value + 2)
+  let start = Math.max(1, end - maxBtns + 1)
+  end = Math.min(total, start + maxBtns - 1)
+  start = Math.max(1, end - maxBtns + 1)
+  const list = []
+  for (let i = start; i <= end; i++) list.push(i)
+  return list
+})
+
+async function loadStats() {
+  const data = await fetchDashboardStats()
+  overview.value = data.overview || overview.value
+  monthly.value = data.monthly || []
+}
+
+async function loadUrgentTasks() {
+  const res = await fetchDashboardUrgentTasks({
+    page: urgentPage.value,
+    pageSize: URGENT_PAGE_SIZE,
+  })
+  urgentList.value = res.list || []
+  urgentTotal.value = res.total ?? 0
+  urgentTotalPages.value = res.totalPages ?? 0
+  if (res.page != null) urgentPage.value = res.page
+}
+
+async function goUrgentPage(p) {
+  if (urgentTotalPages.value <= 0) return
+  if (p < 1 || p > urgentTotalPages.value || p === urgentPage.value) return
+  urgentPage.value = p
+  await loadUrgentTasks()
+}
+
 onMounted(async () => {
   try {
-    const data = await fetchDashboardStats()
-    overview.value = data.overview || overview.value
-    monthly.value = data.monthly || []
-    urgent.value = data.urgent || []
+    urgentPage.value = 1
+    await Promise.all([loadStats(), loadUrgentTasks()])
   } catch {
     /* global interceptor handles */
   }
