@@ -50,7 +50,8 @@
           <div
             v-for="(period, pi) in timelineWeekPages"
             :key="period.snapKey"
-            class="timeline-week-page flex w-full min-w-full shrink-0 flex-col border-r border-surface-variant last:border-r-0"
+            class="timeline-week-page relative flex w-full min-w-full shrink-0 flex-col border-r border-surface-variant last:border-r-0"
+            :style="{ zIndex: timelineWeekPages.length - pi }"
           >
             <div
               class="border-b border-surface-variant bg-surface-container-low/40 py-2 text-center text-sm font-semibold text-on-surface"
@@ -80,11 +81,11 @@
             >
               <div
                 v-if="period.todayLinePct !== null"
-                class="pointer-events-none absolute bottom-0 top-0 z-[8] w-px bg-secondary"
+                class="pointer-events-none absolute bottom-0 top-0 z-[20] w-px bg-secondary"
                 :style="{ left: period.todayLinePct + '%', transform: 'translateX(-50%)' }"
               >
                 <span
-                  class="absolute -top-0.5 left-1/2 z-[9] -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-1 py-0.5 text-[10px] text-white"
+                  class="absolute -top-0.5 left-1/2 z-[21] -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-1 py-0.5 text-[10px] text-white"
                 >今</span>
               </div>
               <div
@@ -161,11 +162,11 @@
             >
               <div
                 v-if="period.todayLinePct !== null"
-                class="pointer-events-none absolute bottom-0 top-0 z-[8] w-px bg-secondary"
+                class="pointer-events-none absolute bottom-0 top-0 z-[20] w-px bg-secondary"
                 :style="{ left: period.todayLinePct + '%', transform: 'translateX(-50%)' }"
               >
                 <span
-                  class="absolute -top-0.5 left-1/2 z-[9] -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-1 py-0.5 text-[10px] text-white"
+                  class="absolute -top-0.5 left-1/2 z-[21] -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-1 py-0.5 text-[10px] text-white"
                 >今</span>
               </div>
               <div
@@ -515,6 +516,24 @@ function buildLaidOutForMonthPageMerged(mStart, mEnd, taskArray) {
   return { laidOut: merged, trackCount }
 }
 
+/** 周视图：跨自然周（一～日）的任务画成一条连续条，后续周不再重复画同一条的尾段 */
+function buildLaidOutForWeekPageMerged(wStart, wEnd, taskArray) {
+  const { laidOut } = buildLaidOutForPeriod(wStart, wEnd, taskArray)
+  const days = daysInPeriodInclusive(wStart, wEnd)
+  const merged = laidOut
+    .filter((it) => parseYmdChina(it.task.startDate) >= wStart)
+    .map((it) => {
+      const te = parseYmdChina(it.task.endDate)
+      if (te <= wEnd) return it
+      const neFull = dayOffsetFromChina(wStart, te)
+      const widthPct = Math.max(((neFull - it.ns + 1) / days) * 100, 1.2)
+      return { ...it, widthPct }
+    })
+  const maxTrack = merged.reduce((acc, it) => Math.max(acc, it.track), -1)
+  const trackCount = Math.max(1, maxTrack + 1)
+  return { laidOut: merged, trackCount }
+}
+
 const taskDateBounds = computed(() => {
   let min = null
   let max = null
@@ -553,7 +572,7 @@ const timelineWeekPages = computed(() => {
         isToday: formatYmdChina(d) === chinaTodayYmd(),
       })
     }
-    const { laidOut, trackCount } = buildLaidOutForPeriod(wStart, wEnd, props.tasks)
+    const { laidOut, trackCount } = buildLaidOutForWeekPageMerged(wStart, wEnd, props.tasks)
     let todayLinePct = null
     if (today >= wStart && today <= wEnd) {
       todayLinePct = (dayOffsetFromChina(wStart, today) / days) * 100
