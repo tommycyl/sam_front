@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '@/utils/auth'
 
 const Login = () => import('@/views/Login.vue')
+const Dashboard = () => import('@/views/Dashboard.vue')
 const StudentList = () => import('@/views/StudentList.vue')
 const StudentDetail = () => import('@/views/StudentDetail.vue')
 const TeacherList = () => import('@/views/TeacherList.vue')
@@ -10,7 +11,8 @@ const Settings = () => import('@/views/Settings.vue')
 
 const routes = [
   { path: '/login', name: 'Login', component: Login, meta: { public: true } },
-  { path: '/', redirect: '/students' },
+  { path: '/', redirect: '/dashboard' },
+  { path: '/dashboard', name: 'Dashboard', component: Dashboard },
   { path: '/students', name: 'StudentList', component: StudentList },
   { path: '/students/:id', name: 'StudentDetail', component: StudentDetail, props: true },
   { path: '/teachers', name: 'TeacherList', component: TeacherList },
@@ -26,7 +28,7 @@ const router = createRouter({
 router.beforeEach((to) => {
   if (to.meta.public) {
     if (to.name === 'Login' && isAuthenticated()) {
-      return { path: '/students' }
+      return { path: '/dashboard' }
     }
     return true
   }

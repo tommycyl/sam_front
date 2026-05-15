@@ -120,6 +120,7 @@ const route = useRoute()
 const router = useRouter()
 
 const items = [
+  { to: '/dashboard', label: '首页', icon: 'dashboard', match: '/dashboard' },
   { to: '/students', label: '学生管理', icon: 'group', match: '/students' },
   { to: '/teachers', label: '教师管理', icon: 'school', match: '/teachers' },
   { to: '/settings', label: '系统设置', icon: 'settings', match: '/settings' },
